@@ -507,6 +507,10 @@ export default function Home() {
   >("basic_bo");
   const [requestStatus, setRequestStatus] = useState("");
   const [adminRequests, setAdminRequests] = useState<PaymentRequest[]>([]);
+  const [manualAccess, setManualAccess] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
   const coin = coins.find((c) => c.id === selected) ?? coins[0];
   const loadAccess = async (user: User | null) => {
     setAuthUser(user);
@@ -596,7 +600,10 @@ export default function Home() {
   useEffect(() => {
     if (isAdmin) loadPaymentRequests();
   }, [isAdmin]);
-  const reviewPayment = async (id: string, action: "approve" | "reject") => {
+  const reviewPayment = async (
+    id: string,
+    action: "approve" | "reject" | "manual",
+  ) => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -610,12 +617,19 @@ export default function Home() {
       body: JSON.stringify({ id, action }),
     });
     const body = await response.json();
+    if (response.ok && action === "manual")
+      setManualAccess({
+        email: body.email,
+        password: body.temporaryPassword,
+      });
     setNotice(
       response.ok
         ? (body.message ??
             (action === "approve"
               ? "Pago aprobado e invitación enviada."
-              : "Solicitud rechazada."))
+              : action === "manual"
+                ? "Acceso manual creado."
+                : "Solicitud rechazada."))
         : (body.error ?? "No se pudo procesar."),
     );
     if (response.ok) loadPaymentRequests();
@@ -2032,6 +2046,27 @@ export default function Home() {
               <button>Exportar ventas</button>
             </div>
             {notice && <div className="plan-notice">{notice}</div>}
+            {manualAccess && (
+              <div className="plan-notice">
+                <b>Acceso manual listo · cópialo ahora</b>
+                <p>Correo: {manualAccess.email}</p>
+                <p>Contraseña temporal: <strong>{manualAccess.password}</strong></p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(
+                      `CriptoPulso\nCorreo: ${manualAccess.email}\nContraseña temporal: ${manualAccess.password}\nIngreso: https://cripto-pulso.vercel.app`,
+                    );
+                    setNotice("Datos de acceso copiados.");
+                  }}
+                >
+                  Copiar datos para el cliente
+                </button>
+                <button type="button" onClick={() => setManualAccess(null)}>
+                  Ya los guardé
+                </button>
+              </div>
+            )}
             <div className="admin-row admin-head">
               <span>USUARIO</span>
               <span>PLAN</span>
@@ -2095,6 +2130,12 @@ export default function Home() {
                       </button>
                       <button
                         disabled={r.status !== "pending"}
+                        onClick={() => reviewPayment(r.id, "manual")}
+                      >
+                        Acceso manual
+                      </button>
+                      <button
+                        disabled={r.status !== "pending"}
                         onClick={() => reviewPayment(r.id, "reject")}
                       >
                         Rechazar
@@ -2119,7 +2160,7 @@ export default function Home() {
               <span>IMPORTE PAGADO</span>
               <span>MÉTODO</span>
               <span>ESTADO</span>
-              <span>COMPROBANTE</span>
+              <span>COMPROBANTE / ACCIÓN</span>
             </div>
             {adminRequests.some((r) => r.status !== "pending") ? (
               adminRequests
@@ -2130,7 +2171,7 @@ export default function Home() {
                       {r.full_name}
                       <small>{r.email}</small>
                     </b>
-                    <span>
+                    <span className="admin-actions">
                       {r.plan
                         .replace("basic_bo", "Básico BO")
                         .replace("crypto_10", "Cripto 10")
@@ -2156,6 +2197,11 @@ export default function Home() {
                         >
                           Ver comprobante
                         </a>
+                      )}
+                      {r.status === "invited" && (
+                        <button onClick={() => reviewPayment(r.id, "manual")}>
+                          Acceso manual
+                        </button>
                       )}
                     </span>
                   </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 async function authorize(request: Request) {
@@ -52,18 +53,80 @@ export async function PATCH(request: Request) {
   if (!auth)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { id, action } = await request.json();
-  if (!id || !["approve", "reject"].includes(action))
+  if (!id || !["approve", "reject", "manual"].includes(action))
     return NextResponse.json({ error: "Solicitud inválida" }, { status: 400 });
   const { data: payment } = await auth.admin
     .from("payment_requests")
     .select("email,status")
     .eq("id", id)
     .single();
-  if (!payment || payment.status !== "pending")
+  if (
+    !payment ||
+    (action === "manual"
+      ? !["pending", "invited"].includes(payment.status)
+      : payment.status !== "pending")
+  )
     return NextResponse.json(
       { error: "La solicitud ya fue procesada" },
       { status: 409 },
     );
+  if (action === "manual") {
+    const listed = await auth.admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    const existingUser = listed.data.users.find(
+      (user) => user.email?.toLowerCase() === payment.email.toLowerCase(),
+    );
+    const temporaryPassword = `CP-${randomBytes(9).toString("base64url")}!7`;
+    let userId = existingUser?.id;
+    if (existingUser) {
+      const { error } = await auth.admin.auth.admin.updateUserById(
+        existingUser.id,
+        {
+          password: temporaryPassword,
+          email_confirm: true,
+        },
+      );
+      if (error)
+        return NextResponse.json(
+          { error: `No se pudo habilitar la cuenta: ${error.message}` },
+          { status: 400 },
+        );
+    } else {
+      const { data, error } = await auth.admin.auth.admin.createUser({
+        email: payment.email,
+        password: temporaryPassword,
+        email_confirm: true,
+      });
+      if (error)
+        return NextResponse.json(
+          { error: `No se pudo crear la cuenta: ${error.message}` },
+          { status: 400 },
+        );
+      userId = data.user.id;
+    }
+    if (userId)
+      await auth.admin
+        .from("profiles")
+        .update({ status: "active" })
+        .eq("user_id", userId);
+    await auth.admin
+      .from("payment_requests")
+      .update({
+        status: "approved",
+        reviewed_by: auth.user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    return NextResponse.json({
+      ok: true,
+      status: "approved",
+      email: payment.email,
+      temporaryPassword,
+      message: "Acceso manual creado. Copia la contraseña antes de cerrar el aviso.",
+    });
+  }
   if (action === "reject") {
     await auth.admin
       .from("payment_requests")
