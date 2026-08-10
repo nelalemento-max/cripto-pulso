@@ -83,7 +83,7 @@ export async function PATCH(request: Request) {
   const existingUser = existing.data.users.find(
     (user) => user.email?.toLowerCase() === payment.email.toLowerCase(),
   );
-  if (existingUser) {
+  if (existingUser?.email_confirmed_at) {
     await auth.admin
       .from("profiles")
       .update({ status: "active" })
@@ -102,6 +102,15 @@ export async function PATCH(request: Request) {
       message:
         "Pago verificado. El correo ya tenía una cuenta y puede iniciar sesión.",
     });
+  }
+  if (existingUser) {
+    const { error: deleteError } =
+      await auth.admin.auth.admin.deleteUser(existingUser.id);
+    if (deleteError)
+      return NextResponse.json(
+        { error: "No se pudo renovar la invitación anterior." },
+        { status: 400 },
+      );
   }
   const { error: inviteError } = await auth.admin.auth.admin.inviteUserByEmail(
     payment.email,
@@ -135,6 +144,7 @@ export async function PATCH(request: Request) {
       status: "invited",
       reviewed_by: auth.user.id,
       reviewed_at: new Date().toISOString(),
+      invite_sent_at: new Date().toISOString(),
     })
     .eq("id", id);
   return NextResponse.json({ ok: true, status: "invited" });
