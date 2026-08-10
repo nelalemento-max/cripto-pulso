@@ -213,3 +213,66 @@ export async function PATCH(request: Request) {
     .eq("id", id);
   return NextResponse.json({ ok: true, status: "invited" });
 }
+
+export async function DELETE(request: Request) {
+  const auth = await authorize(request);
+  if (!auth)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const { id } = await request.json();
+  if (!id)
+    return NextResponse.json({ error: "Solicitud inválida" }, { status: 400 });
+
+  const { data: payment, error: paymentError } = await auth.admin
+    .from("payment_requests")
+    .select("id,email,receipt_path,status")
+    .eq("id", id)
+    .single();
+  if (paymentError || !payment)
+    return NextResponse.json({ error: "La solicitud no existe" }, { status: 404 });
+  if (payment.status !== "pending")
+    return NextResponse.json(
+      { error: "Solo pueden eliminarse solicitudes todavía pendientes" },
+      { status: 409 },
+    );
+
+  const listed = await auth.admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const customer = listed.data.users.find(
+    (user) => user.email?.toLowerCase() === payment.email.toLowerCase(),
+  );
+  if (customer) {
+    const { data: customerProfile } = await auth.admin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", customer.id)
+      .maybeSingle();
+    if (customer.id === auth.user.id || customerProfile?.role === "admin")
+      return NextResponse.json(
+        { error: "La cuenta de un administrador no puede eliminarse aquí" },
+        { status: 403 },
+      );
+    const { error: userError } = await auth.admin.auth.admin.deleteUser(customer.id);
+    if (userError)
+      return NextResponse.json(
+        { error: `No se pudo eliminar la cuenta: ${userError.message}` },
+        { status: 400 },
+      );
+  }
+
+  if (payment.receipt_path)
+    await auth.admin.storage.from("payment-receipts").remove([payment.receipt_path]);
+  const { error: deleteError } = await auth.admin
+    .from("payment_requests")
+    .delete()
+    .eq("id", id);
+  if (deleteError)
+    return NextResponse.json(
+      { error: "La cuenta se eliminó, pero no se pudo borrar la solicitud" },
+      { status: 500 },
+    );
+  return NextResponse.json({
+    ok: true,
+    message: customer
+      ? "Usuario, solicitud y comprobante eliminados."
+      : "Solicitud y comprobante eliminados.",
+  });
+}
