@@ -45,6 +45,23 @@ type PaymentRequest = {
   status: string;
   created_at: string;
 };
+type CommunityComment = {
+  id?: string;
+  name: string;
+  badge: string;
+  asset: string;
+  text: string;
+  useful: number;
+  score: number;
+  status?: "published" | "reviewed" | "hidden";
+};
+type VisitMetrics = {
+  today: number;
+  sevenDays: number;
+  pageViews: number;
+  topPage: string;
+  devices: Record<string, number>;
+};
 
 const dollarHistory = [
   { m: "Ago 25", official: 6.96, p2p: 14.12 },
@@ -60,7 +77,7 @@ const dollarHistory = [
   { m: "Jun", official: 10.22, p2p: 11.35 },
   { m: "Hoy", official: 11.86, p2p: 11.18 },
 ];
-const communitySeed = [
+const communitySeed: CommunityComment[] = [
   {
     name: "Lucía Quant",
     badge: "Analista destacada",
@@ -354,7 +371,15 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [tradeLog, setTradeLog] = useState<TradeLog[]>([]);
   const [comment, setComment] = useState("");
-  const [comments, setComments] = useState(communitySeed);
+  const [commentAsset, setCommentAsset] = useState("BTC");
+  const [comments, setComments] = useState<CommunityComment[]>(communitySeed);
+  const [visitMetrics, setVisitMetrics] = useState<VisitMetrics>({
+    today: 0,
+    sevenDays: 0,
+    pageViews: 0,
+    topPage: "/",
+    devices: {},
+  });
   const [showAllTrends, setShowAllTrends] = useState(false);
   const [pulseInfo, setPulseInfo] = useState(false);
   const [search, setSearch] = useState("");
@@ -487,26 +512,160 @@ export default function Home() {
       "Solicitud recibida. Revisaremos el pago y enviaremos la invitación a tu correo.",
     );
   };
+  const normalizeComments = (rows: any[]): CommunityComment[] =>
+    rows.map((r) => ({
+      id: r.id,
+      name: r.author_name,
+      badge: r.badge,
+      asset: r.asset,
+      text: r.body,
+      useful: r.useful_count,
+      score: Number(r.score ?? 0),
+      status: r.status,
+    }));
+  const loadComments = async (admin = false) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const response = await fetch(
+      admin ? "/api/admin/comments" : "/api/comments",
+      admin && session
+        ? { headers: { Authorization: `Bearer ${session.access_token}` } }
+        : undefined,
+    );
+    if (response.ok) {
+      const body = await response.json();
+      setComments(normalizeComments(body.comments ?? []));
+    }
+  };
+  const publishComment = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      setNotice("Inicia sesión con una cuenta activa para comentar.");
+      setView("login");
+      return;
+    }
+    const response = await fetch("/api/comments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ asset: commentAsset, body: comment }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setNotice(body.error ?? "No se pudo publicar.");
+      return;
+    }
+    setComment("");
+    await loadComments();
+  };
+  const moderateComment = async (
+    id: string | undefined,
+    action: "review" | "hide" | "restore",
+  ) => {
+    if (!id) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/admin/comments", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ id, action }),
+    });
+    const body = await response.json();
+    setNotice(
+      response.ok
+        ? action === "review"
+          ? "Comentario marcado como revisado."
+          : action === "hide"
+            ? "Comentario ocultado."
+            : "Comentario restaurado."
+        : (body.error ?? "No se pudo actualizar."),
+    );
+    if (response.ok) await loadComments(true);
+  };
+  const loadMetrics = async () => {
+    const response = await fetch("/api/visits", { cache: "no-store" });
+    if (response.ok) setVisitMetrics(await response.json());
+  };
+  useEffect(() => {
+    loadComments();
+    loadMetrics();
+    const visitorId =
+      localStorage.getItem("criptopulso-visitor") ?? crypto.randomUUID();
+    localStorage.setItem("criptopulso-visitor", visitorId);
+    let sessionId = sessionStorage.getItem("criptopulso-session");
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem("criptopulso-session", sessionId);
+    }
+    const width = window.innerWidth;
+    const device = width < 600 ? "mobile" : width < 1000 ? "tablet" : "desktop";
+    fetch("/api/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        visitorId,
+        sessionId,
+        path: location.pathname,
+        device,
+      }),
+    })
+      .then(() => loadMetrics())
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (isAdmin) {
+      loadComments(true);
+      loadMetrics();
+    }
+  }, [isAdmin]);
   useEffect(() => {
     fetch(
-      "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano&price_change_percentage=24h",
+      "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=30&page=1&sparkline=false&price_change_percentage=24h",
     )
       .then((r) => r.json())
       .then((rows) => {
         if (!Array.isArray(rows)) return;
-        setCoins((old) =>
-          old.map((c) => {
-            const n = rows.find((r: { id: string }) => r.id === c.id);
-            return n
-              ? {
-                  ...c,
-                  price: n.current_price,
-                  change: n.price_change_percentage_24h ?? 0,
-                  cap: compact(n.market_cap),
-                  volume: compact(n.total_volume),
-                }
-              : c;
-          }),
+        setCoins(
+          rows
+            .filter((n: any) => n.current_price != null)
+            .map((n: any) => {
+              const change = Number(n.price_change_percentage_24h ?? 0);
+              const signal =
+                change >= 3
+                  ? "COMPRA FUERTE"
+                  : change >= 0.5
+                    ? "COMPRA"
+                    : change <= -3
+                      ? "VENTA"
+                      : change <= -0.5
+                        ? "VENTA"
+                        : "ESPERAR";
+              const confidence = Math.min(
+                90,
+                Math.round(58 + Math.abs(change) * 4),
+              );
+              return {
+                id: n.id,
+                symbol: String(n.symbol).toUpperCase(),
+                name: n.name,
+                price: Number(n.current_price),
+                change,
+                cap: compact(Number(n.market_cap ?? 0)),
+                volume: compact(Number(n.total_volume ?? 0)),
+                signal,
+                confidence,
+              };
+            }),
         );
       })
       .catch(() => {});
@@ -1007,10 +1166,13 @@ export default function Home() {
           </section>
           <div className="public-traffic panel">
             <span>◉ COMUNIDAD EN CRECIMIENTO</span>
-            <b>Las visitas públicas se mostrarán cuando exista medición real</b>
+            <b>
+              {visitMetrics.today.toLocaleString("es-BO")} visitantes hoy ·{" "}
+              {visitMetrics.sevenDays.toLocaleString("es-BO")} en 7 días
+            </b>
             <small>
-              No inflamos cifras: el administrador verá sesiones, usuarios y
-              páginas vistas verificadas.
+              {visitMetrics.pageViews.toLocaleString("es-BO")} páginas vistas
+              reales. Una persona se cuenta una vez por dispositivo.
             </small>
           </div>
           <div className="ad-space">
@@ -1530,36 +1692,25 @@ export default function Home() {
             <article className="comment-form panel">
               <div className="panel-label">COMPARTE TU ANÁLISIS</div>
               <h3>¿Qué tendencia estás observando?</h3>
-              <select aria-label="Activo del comentario">
+              <select
+                aria-label="Activo del comentario"
+                value={commentAsset}
+                onChange={(e) => setCommentAsset(e.target.value)}
+              >
                 <option>{coin.symbol}</option>
                 <option>USD/BOB</option>
-                <option>BTC</option>
-                <option>ETH</option>
+                {coins.map((c) => (
+                  <option key={c.id} value={c.symbol}>
+                    {c.name} · {c.symbol}
+                  </option>
+                ))}
               </select>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Explica qué observas, en qué plazo y qué riesgo considerarías…"
               />
-              <button
-                className="practice"
-                onClick={() => {
-                  if (comment.trim()) {
-                    setComments((c) => [
-                      {
-                        name: "Tú",
-                        badge: "Nuevo analista",
-                        asset: coin.symbol,
-                        text: comment,
-                        useful: 0,
-                        score: 0,
-                      },
-                      ...c,
-                    ]);
-                    setComment("");
-                  }
-                }}
-              >
+              <button className="practice" onClick={publishComment}>
                 Publicar análisis
               </button>
               <small>
@@ -2221,21 +2372,38 @@ export default function Home() {
             <h3>Visitas verificadas</h3>
             <div>
               <span>
-                Hoy<b>Se activa al conectar analítica</b>
+                Hoy
+                <b>
+                  {visitMetrics.today.toLocaleString("es-BO")} visitantes únicos
+                </b>
               </span>
               <span>
-                Últimos 7 días<b>Sin datos inventados</b>
+                Últimos 7 días
+                <b>
+                  {visitMetrics.sevenDays.toLocaleString("es-BO")} visitantes ·{" "}
+                  {visitMetrics.pageViews.toLocaleString("es-BO")} vistas
+                </b>
               </span>
               <span>
-                Páginas más vistas<b>Pendiente de medición</b>
+                Página más vista<b>{visitMetrics.topPage}</b>
               </span>
             </div>
           </article>
           <article className="panel moderation">
             <div className="panel-label">MODERACIÓN DE COMENTARIOS</div>
             <h3>Cola de revisión</h3>
-            {comments.map((c, i) => (
-              <div key={c.name}>
+            {notice && <div className="plan-notice">{notice}</div>}
+            {comments.map((c) => (
+              <div
+                key={c.id ?? c.name}
+                className={
+                  c.status === "reviewed"
+                    ? "comment-reviewed"
+                    : c.status === "hidden"
+                      ? "comment-hidden"
+                      : ""
+                }
+              >
                 <span>
                   <b>{c.name}</b>
                   <small>
@@ -2245,12 +2413,20 @@ export default function Home() {
                 <p>{c.text}</p>
                 <button
                   onClick={() =>
-                    setComments((all) => all.filter((_, j) => j !== i))
+                    moderateComment(
+                      c.id,
+                      c.status === "hidden" ? "restore" : "hide",
+                    )
                   }
                 >
-                  Ocultar
+                  {c.status === "hidden" ? "Restaurar" : "Ocultar"}
                 </button>
-                <button>Marcar revisado</button>
+                <button
+                  disabled={c.status === "reviewed"}
+                  onClick={() => moderateComment(c.id, "review")}
+                >
+                  {c.status === "reviewed" ? "Revisado ✓" : "Marcar revisado"}
+                </button>
               </div>
             ))}
           </article>
