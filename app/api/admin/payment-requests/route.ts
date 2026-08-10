@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const { data, error } = await auth.admin
     .from("payment_requests")
     .select(
-      "id,full_name,email,country,plan,payment_method,amount_label,paid_amount,payment_reference,receipt_path,status,created_at",
+      "id,full_name,email,whatsapp,country,plan,payment_method,amount_label,paid_amount,payment_reference,receipt_path,status,created_at",
     )
     .order("created_at", { ascending: false });
   if (error)
@@ -57,7 +57,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Solicitud inválida" }, { status: 400 });
   const { data: payment } = await auth.admin
     .from("payment_requests")
-    .select("email,status")
+    .select("email,whatsapp,status")
     .eq("id", id)
     .single();
   if (
@@ -123,6 +123,7 @@ export async function PATCH(request: Request) {
       ok: true,
       status: "approved",
       email: payment.email,
+      whatsapp: payment.whatsapp,
       temporaryPassword,
       message: "Acceso manual creado. Copia la contraseña antes de cerrar el aviso.",
     });

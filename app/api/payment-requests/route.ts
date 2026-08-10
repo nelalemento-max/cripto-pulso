@@ -16,6 +16,10 @@ export async function POST(request: Request) {
       .trim()
       .toLowerCase();
     const country = String(form.get("country") ?? "").trim();
+    const whatsapp = String(form.get("whatsapp") ?? "")
+      .trim()
+      .replace(/[^0-9+()\-\s]/g, "")
+      .slice(0, 30);
     const plan = String(form.get("plan") ?? "");
     const reference = String(form.get("reference") ?? "")
       .trim()
@@ -27,6 +31,7 @@ export async function POST(request: Request) {
     if (
       fullName.length < 2 ||
       country.length < 2 ||
+      whatsapp.replace(/\D/g, "").length < 7 ||
       paidAmount.length < 1 ||
       !/^\S+@\S+\.\S+$/.test(email) ||
       !plans[plan]
@@ -73,6 +78,7 @@ export async function POST(request: Request) {
       full_name: fullName,
       email,
       country,
+      whatsapp,
       plan,
       payment_method: config.method,
       amount_label: config.amount,

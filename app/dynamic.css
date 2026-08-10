@@ -431,30 +431,77 @@
   font-size: 7px;
 }
 .admin-table {
-  padding: 20px;
+  padding: 24px;
 }
 .admin-row {
   display: grid;
   grid-template-columns: 1.2fr 1.2fr 0.8fr 1fr 0.8fr 1.2fr;
-  gap: 12px;
+  gap: 18px;
   align-items: center;
-  padding: 13px 0;
+  padding: 17px 4px;
   border-top: 1px solid var(--line);
-  font-size: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.admin-row > b {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.admin-row > b small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
 }
 .admin-row button {
   background: #0d2b23;
   border: 1px solid #1c4f40;
   color: var(--green);
-  padding: 9px;
+  padding: 10px 12px;
+  font-size: 10px;
 }
 .admin-row button:disabled {
   opacity: 0.45;
 }
 .admin-head {
   color: var(--muted);
-  font-size: 7px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  font-weight: 800;
 }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.access-level {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  background: #0b1713;
+  color: var(--muted);
+  font-size: 10px;
+}
+.access-level b { color: var(--gold); letter-spacing: .1em; font-size: 9px; }
+.access-level.paid b { color: var(--green); }
+.access-level button { margin-left: auto; border: 1px solid var(--green); background: none; color: var(--green); padding: 8px 12px; }
+.premium-gate { margin-top: 16px; padding: 28px; text-align: center; border-color: #355548; }
+.premium-gate span { color: var(--gold); font-size: 8px; letter-spacing: .2em; }
+.premium-gate h2 { margin: 10px 0; }
+.premium-gate p { color: var(--muted); line-height: 1.7; max-width: 680px; margin: 10px auto 18px; }
+.premium-gate button { border: 0; background: var(--green); color: #04100d; padding: 12px 18px; font-weight: 800; }
+.locked-course { opacity: .72; }
+.course-content { margin-top: 20px; padding: 28px; }
+.course-content > p { color: var(--muted); }
+.lesson-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 22px; }
+.lesson-list > article { padding: 20px; border: 1px solid var(--line); background: #08130f; }
+.lesson-list > article > span { color: var(--green); font-size: 8px; letter-spacing: .16em; }
+.lesson-list h3 { margin: 9px 0; }
+.lesson-list p { color: var(--muted); font-size: 11px; line-height: 1.65; }
+.lesson-list article > div { border-left: 2px solid var(--gold); padding: 10px 13px; margin-top: 14px; }
+.lesson-list article > div b { color: var(--gold); font-size: 9px; }
+.academy-gate { border: 0; border-top: 1px solid var(--line); }
 .admin-note {
   padding: 20px;
   margin-top: 16px;
@@ -867,8 +914,11 @@
     overflow: auto;
   }
   .admin-row {
-    min-width: 760px;
+    min-width: 980px;
   }
+  .lesson-list { grid-template-columns: 1fr; }
+  .access-level { align-items: flex-start; flex-direction: column; }
+  .access-level button { margin-left: 0; }
   .payment-flow {
     margin: 20px;
     flex-direction: column;

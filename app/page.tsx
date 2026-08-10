@@ -34,6 +34,7 @@ type PaymentRequest = {
   id: string;
   full_name: string;
   email: string;
+  whatsapp?: string;
   country: string;
   plan: string;
   payment_method: string;
@@ -110,6 +111,81 @@ const regionalFuel = [
   { country: "Argentina", gasoline: 1.36, diesel: 1.51, lpg: 0.52 },
   { country: "Perú", gasoline: 1.2, diesel: 1.78, lpg: 0.63 },
   { country: "Chile", gasoline: 1.59, diesel: 1.31, lpg: 0.73 },
+];
+
+const academyModules = [
+  {
+    id: "fundamentos",
+    number: "01",
+    title: "Fundamentos cripto",
+    summary: "Comprende blockchain, Bitcoin, wallets y seguridad desde cero.",
+    lessons: [
+      { title: "Qué es una criptomoneda", content: "Una criptomoneda es un activo digital registrado en una red distribuida. Aprende la diferencia entre moneda, token, precio, utilidad y capitalización.", practice: "Compara Bitcoin, Ether y USDT e identifica para qué se utiliza cada uno." },
+      { title: "Cómo funciona blockchain", content: "Los movimientos se agrupan en bloques enlazados y validados por una red. La trazabilidad no significa que toda red sea segura o que su precio vaya a subir.", practice: "Ubica una transacción pública en un explorador y reconoce red, comisión y confirmaciones." },
+      { title: "Wallets y claves", content: "La wallet administra claves; la red conserva los activos. La frase semilla y la clave privada nunca deben compartirse ni guardarse en capturas de pantalla.", practice: "Clasifica ejemplos entre wallet custodial, no custodial, caliente y fría." },
+      { title: "Stablecoins y redes", content: "Una stablecoin busca mantener una referencia, pero conserva riesgos de emisor, reserva, red y liquidez. Enviar por una red incorrecta puede causar pérdidas.", practice: "Simula un envío de USDT e identifica activo, red, dirección y comisión antes de confirmar." },
+    ],
+  },
+  {
+    id: "mercado",
+    number: "02",
+    title: "Leer el mercado",
+    summary: "Interpreta velas, tendencias, soportes y resistencias.",
+    lessons: [
+      { title: "Anatomía de una vela", content: "Apertura, cierre, máximo y mínimo resumen el movimiento de un periodo. El cuerpo muestra dirección y las mechas reflejan rechazo o volatilidad.", practice: "Identifica una vela alcista, una bajista y una de indecisión en el gráfico." },
+      { title: "Temporalidades", content: "Una señal puede ser alcista en 15 minutos y bajista en un día. Primero se observa el marco mayor y luego se busca una entrada en el menor.", practice: "Compara el mismo activo en 1H, 4H y 1D y anota qué cambia." },
+      { title: "Tendencia y estructura", content: "Máximos y mínimos ascendentes forman una tendencia alcista; descendentes, una bajista. Un movimiento lateral requiere reglas distintas.", practice: "Marca los últimos tres máximos y mínimos y clasifica la estructura." },
+      { title: "Soporte y resistencia", content: "Son zonas donde el precio reaccionó, no líneas exactas. Una ruptura necesita confirmación de cierre y, preferentemente, volumen.", practice: "Dibuja dos zonas y define qué invalidaría tu lectura." },
+    ],
+  },
+  {
+    id: "indicadores",
+    number: "03",
+    title: "Indicadores técnicos",
+    summary: "Usa RSI, MACD, medias móviles y volumen sin depender de uno solo.",
+    lessons: [
+      { title: "RSI", content: "El RSI mide impulso. Sobrecompra o sobreventa no son órdenes automáticas: una tendencia fuerte puede mantener valores extremos.", practice: "Compara el RSI con la estructura del precio antes de decidir." },
+      { title: "Medias móviles", content: "Suavizan el precio y ayudan a observar dirección. Son indicadores retrasados y funcionan peor en mercados laterales.", practice: "Observa si el precio está sobre o debajo de las medias y busca confirmación." },
+      { title: "MACD", content: "Muestra relación entre medias e impulso mediante cruces e histograma. Los cruces tardíos deben analizarse junto con precio y volumen.", practice: "Encuentra un cruce que funcionó y otro que produjo una señal falsa." },
+      { title: "Volumen y confluencia", content: "El volumen ayuda a validar interés. Confluencia significa que estructura, nivel, impulso y riesgo apoyan una misma hipótesis.", practice: "Construye una lista de cuatro confirmaciones antes de practicar una entrada." },
+    ],
+  },
+  {
+    id: "riesgo",
+    number: "04",
+    title: "Gestión de riesgo",
+    summary: "Protege el capital con límites, tamaño de posición y disciplina.",
+    lessons: [
+      { title: "Riesgo por operación", content: "Define cuánto aceptarías perder antes de entrar. Una referencia educativa conservadora suele ser una fracción pequeña del capital, no una apuesta total.", practice: "Calcula el monto de riesgo para tres tamaños de cuenta virtual." },
+      { title: "Stop loss e invalidación", content: "El stop se ubica donde la idea deja de ser válida, no donde la pérdida resulta cómoda. Después se calcula el tamaño de la posición.", practice: "Define entrada, invalidación y pérdida máxima antes de comprar." },
+      { title: "Relación riesgo/beneficio", content: "Compara la pérdida posible con la ganancia objetivo. Una buena relación no garantiza éxito si la probabilidad es baja.", practice: "Evalúa tres escenarios y descarta los que no compensan el riesgo." },
+      { title: "Diario y disciplina", content: "Registrar motivo, emoción, entrada, salida y resultado permite detectar errores repetidos. No se persigue una pérdida con una operación impulsiva.", practice: "Completa una ficha antes y después de una práctica en el simulador." },
+    ],
+  },
+  {
+    id: "simulacion",
+    number: "05",
+    title: "Simulación guiada",
+    summary: "Convierte el análisis en un plan medible usando dinero virtual.",
+    lessons: [
+      { title: "Preparar una hipótesis", content: "Una hipótesis incluye dirección, razones, punto de entrada, invalidación y objetivo. Debe poder demostrarse equivocada.", practice: "Redacta tu hipótesis en una sola frase antes de operar." },
+      { title: "Ejecutar sin improvisar", content: "La entrada se realiza solo si se cumplen las condiciones. Cambiar las reglas durante la operación impide evaluar el método.", practice: "Realiza una compra virtual respetando el límite de pérdida configurado." },
+      { title: "Cerrar y medir", content: "Una operación se evalúa por cumplimiento del plan, no solo por dinero ganado. Una buena decisión también puede terminar en pérdida.", practice: "Cierra una posición y registra resultado financiero y calidad de ejecución." },
+      { title: "Revisión de 10 operaciones", content: "Una sola práctica no demuestra una estrategia. Agrupa resultados, tasa de acierto, ganancia media, pérdida media y errores.", practice: "Completa diez prácticas y escribe una mejora concreta para la siguiente serie." },
+    ],
+  },
+  {
+    id: "estafas",
+    number: "06",
+    title: "Evitar estafas",
+    summary: "Reconoce promesas falsas y protege tus cuentas y dispositivos.",
+    lessons: [
+      { title: "Promesas y urgencia", content: "Rentabilidad garantizada, presión para depositar y supuestos expertos que escriben por privado son alertas frecuentes.", practice: "Marca las señales de alarma en tres ofertas ficticias." },
+      { title: "Phishing y aplicaciones falsas", content: "Verifica dominio, aplicación y remitente. Nunca ingreses una frase semilla desde un enlace recibido por mensaje.", practice: "Revisa una URL de ejemplo y detecta cambios de letras o dominios extraños." },
+      { title: "Seguridad de cuenta", content: "Usa contraseña única, gestor de contraseñas y autenticación de dos factores con aplicación cuando sea posible.", practice: "Completa una lista de seguridad para correo, exchange y wallet." },
+      { title: "Qué hacer ante un incidente", content: "Detén transferencias, cambia credenciales desde un equipo seguro, revoca sesiones y documenta direcciones y transacciones para reportar.", practice: "Ordena los pasos de respuesta ante una cuenta comprometida." },
+    ],
+  },
 ];
 
 const fallback: Coin[] = [
@@ -461,6 +537,7 @@ export default function Home() {
   >("market");
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasPaidAccess, setHasPaidAccess] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
@@ -510,12 +587,16 @@ export default function Home() {
   const [manualAccess, setManualAccess] = useState<{
     email: string;
     password: string;
+    whatsapp?: string;
   } | null>(null);
-  const coin = coins.find((c) => c.id === selected) ?? coins[0];
+  const [openCourse, setOpenCourse] = useState("fundamentos");
+  const visibleCoins = hasPaidAccess ? coins : coins.slice(0, 5);
+  const coin = visibleCoins.find((c) => c.id === selected) ?? visibleCoins[0];
   const loadAccess = async (user: User | null) => {
     setAuthUser(user);
     if (!user) {
       setIsAdmin(false);
+      setHasPaidAccess(false);
       return false;
     }
     const { data } = await supabase
@@ -523,8 +604,10 @@ export default function Home() {
       .select("role,status")
       .eq("user_id", user.id)
       .single();
-    const allowed = data?.role === "admin" && data?.status === "active";
+    const paid = data?.status === "active";
+    const allowed = data?.role === "admin" && paid;
     setIsAdmin(allowed);
+    setHasPaidAccess(paid);
     return allowed;
   };
   useEffect(() => {
@@ -568,6 +651,7 @@ export default function Home() {
     await supabase.auth.signOut();
     setAuthUser(null);
     setIsAdmin(false);
+    setHasPaidAccess(false);
     setView("market");
   };
   const recoverPassword = async () => {
@@ -621,6 +705,7 @@ export default function Home() {
       setManualAccess({
         email: body.email,
         password: body.temporaryPassword,
+        whatsapp: body.whatsapp,
       });
     setNotice(
       response.ok
@@ -989,9 +1074,19 @@ export default function Home() {
             <button
               key={id}
               className={view === id ? "active" : ""}
-              onClick={() => setView(id as typeof view)}
+              onClick={() => {
+                if (!hasPaidAccess && ["dollar", "community"].includes(id)) {
+                  setNotice("Esta sección forma parte del acceso pagado.");
+                  setView("plans");
+                  return;
+                }
+                setView(id as typeof view);
+              }}
             >
               {label}
+              {!hasPaidAccess && ["dollar", "community"].includes(id)
+                ? " 🔒"
+                : ""}
             </button>
           ))}
         </nav>
@@ -1003,7 +1098,9 @@ export default function Home() {
             {authUser
               ? isAdmin
                 ? "Panel administrador"
-                : "Mi sesión"
+                : hasPaidAccess
+                  ? "Mi cuenta completa"
+                  : "Mi sesión"
               : "Iniciar sesión"}
           </button>
           {authUser && (
@@ -1017,7 +1114,7 @@ export default function Home() {
         </div>
       </header>
       <div className="ticker">
-        {coins.map((c) => (
+        {visibleCoins.map((c) => (
           <button
             key={c.id}
             onClick={() => {
@@ -1035,6 +1132,17 @@ export default function Home() {
       </div>
       {view === "market" && (
         <div className="terminal">
+          <div className={`access-level ${hasPaidAccess ? "paid" : "free"}`}>
+            <b>{hasPaidAccess ? "ACCESO COMPLETO ACTIVO" : "VISTA GRATUITA"}</b>
+            <span>
+              {hasPaidAccess
+                ? "Todas las monedas, análisis, cursos y prácticas disponibles."
+                : "Puedes consultar 5 monedas y una introducción. Activa un plan para abrir todo el contenido."}
+            </span>
+            {!hasPaidAccess && (
+              <button onClick={() => setView("plans")}>Ver planes</button>
+            )}
+          </div>
           <section className="market-head">
             <div>
               <span className="live-dot">● MERCADO EN VIVO</span>
@@ -1227,15 +1335,27 @@ export default function Home() {
                   <div className="panel-label">RADAR DE TENDENCIAS</div>
                   <h3>Oportunidades observadas</h3>
                 </div>
-                <button onClick={() => setShowAllTrends((v) => !v)}>
-                  {showAllTrends ? "Ver destacadas" : "Ver todas las monedas"} →
+                <button
+                  onClick={() =>
+                    hasPaidAccess
+                      ? setShowAllTrends((v) => !v)
+                      : setView("plans")
+                  }
+                >
+                  {hasPaidAccess
+                    ? showAllTrends
+                      ? "Ver destacadas"
+                      : "Ver todas las monedas"
+                    : "Desbloquear todas"} →
                 </button>
               </div>
               <p className="radar-help">
                 Ordena activos por fuerza de señal y confianza. Abre una moneda
                 para ver por qué aparece.
               </p>
-              {coins.slice(0, showAllTrends ? coins.length : 4).map((c) => (
+              {visibleCoins
+                .slice(0, showAllTrends ? visibleCoins.length : 4)
+                .map((c) => (
                 <button
                   className="trend-row"
                   key={c.id}
@@ -1267,14 +1387,18 @@ export default function Home() {
                   </em>
                   <strong>{c.confidence}%</strong>
                 </button>
-              ))}
+                ))}
             </article>
           </section>
           <section className="coin-table panel">
             <div className="panel-top">
               <div>
                 <div className="panel-label">MERCADO</div>
-                <h3>Todas las criptomonedas disponibles</h3>
+                <h3>
+                  {hasPaidAccess
+                    ? "Todas las criptomonedas disponibles"
+                    : "5 criptomonedas en la vista gratuita"}
+                </h3>
               </div>
               <input
                 value={search}
@@ -1290,7 +1414,7 @@ export default function Home() {
               <span>VOLUMEN</span>
               <span>SEÑAL</span>
             </div>
-            {coins
+            {visibleCoins
               .filter((c) =>
                 (c.name + c.symbol)
                   .toLowerCase()
@@ -1330,6 +1454,18 @@ export default function Home() {
                 </button>
               ))}
           </section>
+          {!hasPaidAccess && (
+            <article className="premium-gate panel">
+              <span>ACCESO COMPLETO</span>
+              <h2>Continúa con el análisis completo del mercado</h2>
+              <p>
+                Desbloquea todas las monedas, señales explicadas, indicadores,
+                academia completa y prácticas avanzadas después de verificar
+                tu pago.
+              </p>
+              <button onClick={() => setView("plans")}>Comparar planes</button>
+            </article>
+          )}
           <div className="public-traffic panel">
             <span>◉ COMUNIDAD EN CRECIMIENTO</span>
             <b>
@@ -1411,7 +1547,7 @@ export default function Home() {
               aria-label="Añadir moneda para practicar"
             >
               <option value="">+ Añadir moneda</option>
-              {coins
+              {visibleCoins
                 .filter((c) => !practiceCoins.includes(c.id))
                 .map((c) => (
                   <option key={c.id} value={c.id}>
@@ -1672,6 +1808,22 @@ export default function Home() {
               <input name="email" type="email" required />
             </label>
             <label>
+              WhatsApp con código de país
+              <input
+                name="whatsapp"
+                type="tel"
+                autoComplete="tel"
+                required
+                minLength={7}
+                maxLength={30}
+                placeholder="Ej.: +591 70000000"
+              />
+              <small>
+                Se utilizará únicamente para enviarte los datos de acceso y
+                atender tu solicitud.
+              </small>
+            </label>
+            <label>
               País
               <input
                 name="country"
@@ -1888,7 +2040,7 @@ export default function Home() {
               >
                 <option>{coin.symbol}</option>
                 <option>USD/BOB</option>
-                {coins.map((c) => (
+                {visibleCoins.map((c) => (
                   <option key={c.id} value={c.symbol}>
                     {c.name} · {c.symbol}
                   </option>
@@ -2050,6 +2202,7 @@ export default function Home() {
               <div className="plan-notice">
                 <b>Acceso manual listo · cópialo ahora</b>
                 <p>Correo: {manualAccess.email}</p>
+                <p>WhatsApp: {manualAccess.whatsapp || "No registrado"}</p>
                 <p>Contraseña temporal: <strong>{manualAccess.password}</strong></p>
                 <button
                   type="button"
@@ -2083,6 +2236,7 @@ export default function Home() {
                     <b>
                       {r.full_name}
                       <small>{r.email}</small>
+                      <small>WhatsApp: {r.whatsapp || "No registrado"}</small>
                     </b>
                     <span>
                       {r.plan
@@ -2170,6 +2324,7 @@ export default function Home() {
                     <b>
                       {r.full_name}
                       <small>{r.email}</small>
+                      <small>WhatsApp: {r.whatsapp || "No registrado"}</small>
                     </b>
                     <span className="admin-actions">
                       {r.plan
@@ -2226,56 +2381,69 @@ export default function Home() {
           <div className="page-title">
             <span>ACADEMIA CRIPTOPULSO</span>
             <h1>Aprende antes de decidir.</h1>
-            <p>Cursos breves, ejemplos reales y práctica guiada.</p>
+            <p>
+              Rutas breves con explicación, ejercicio y aplicación en el
+              simulador. El contenido es educativo, no asesoramiento financiero.
+            </p>
           </div>
           <div className="course-grid">
-            {[
-              [
-                "01",
-                "Fundamentos cripto",
-                "8 lecciones",
-                "Qué es blockchain, Bitcoin, wallets y seguridad.",
-              ],
-              [
-                "02",
-                "Leer el mercado",
-                "12 lecciones",
-                "Velas, tendencias, soportes y resistencias.",
-              ],
-              [
-                "03",
-                "Indicadores técnicos",
-                "10 lecciones",
-                "RSI, MACD, medias móviles y volumen.",
-              ],
-              [
-                "04",
-                "Gestión de riesgo",
-                "7 lecciones",
-                "Tamaño de posición, diversificación y disciplina.",
-              ],
-              [
-                "05",
-                "Simulación guiada",
-                "15 prácticas",
-                "Aplica señales y compara tus decisiones.",
-              ],
-              [
-                "06",
-                "Evitar estafas",
-                "6 lecciones",
-                "Reconoce promesas engañosas y protege tus activos.",
-              ],
-            ].map((c) => (
-              <article className="course panel" key={c[0]}>
-                <span>{c[0]}</span>
-                <small>{c[2]}</small>
-                <h3>{c[1]}</h3>
-                <p>{c[3]}</p>
-                <button>Ver contenido →</button>
+            {academyModules.map((course, index) => (
+              <article
+                className={`course panel ${!hasPaidAccess && index > 0 ? "locked-course" : ""}`}
+                key={course.id}
+              >
+                <span>{course.number}</span>
+                <small>{course.lessons.length} lecciones</small>
+                <h3>{course.title}</h3>
+                <p>{course.summary}</p>
+                <button
+                  onClick={() =>
+                    !hasPaidAccess && index > 0
+                      ? setView("plans")
+                      : setOpenCourse(course.id)
+                  }
+                >
+                  {!hasPaidAccess && index > 0
+                    ? "🔒 Requiere plan"
+                    : "Estudiar módulo →"}
+                </button>
               </article>
             ))}
           </div>
+          {academyModules
+            .filter((course) => course.id === openCourse)
+            .map((course) => (
+              <section className="course-content panel" key={course.id}>
+                <div className="panel-label">MÓDULO {course.number}</div>
+                <h2>{course.title}</h2>
+                <p>{course.summary}</p>
+                <div className="lesson-list">
+                  {course.lessons
+                    .slice(0, hasPaidAccess ? course.lessons.length : 1)
+                    .map((lesson, index) => (
+                      <article key={lesson.title}>
+                        <span>LECCIÓN {index + 1}</span>
+                        <h3>{lesson.title}</h3>
+                        <p>{lesson.content}</p>
+                        <div>
+                          <b>Práctica guiada</b>
+                          <p>{lesson.practice}</p>
+                        </div>
+                      </article>
+                    ))}
+                </div>
+                {!hasPaidAccess && (
+                  <div className="premium-gate academy-gate">
+                    <b>Lección introductoria gratuita completada</b>
+                    <p>
+                      Activa un plan para abrir las 24 lecciones, ejercicios y
+                      simulaciones guiadas.
+                    </p>
+                    <button onClick={() => setView("plans")}>Desbloquear academia</button>
+                  </div>
+                )}
+              </section>
+            ))}
         </section>
       )}
       {view === "plans" && (
