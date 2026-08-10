@@ -188,6 +188,90 @@ const academyModules = [
   },
 ];
 
+type QuizQuestion = {
+  statement: string;
+  answer: boolean;
+  explanation: string;
+};
+
+const lessonReadings: Record<string, string[]> = {
+  fundamentos: [
+    "El término criptomoneda reúne activos digitales muy diferentes. Bitcoin fue diseñado como una red monetaria sin una autoridad central; Ether sirve además para pagar operaciones en Ethereum; USDT busca seguir el valor del dólar. Una moneda pertenece a su propia red, mientras que un token suele funcionar sobre una red existente. El precio es lo que el mercado paga en un momento, la capitalización aproxima precio por unidades circulantes y el volumen muestra cuánto se negoció. Ninguno de esos datos, por separado, demuestra que un proyecto sea útil, seguro o una buena compra. Antes de considerar un activo revisa su propósito, emisión, liquidez, equipo, riesgos y dónde se negocia.",
+    "Una blockchain es un registro compartido entre muchos participantes. Las transacciones válidas se agrupan en bloques y cada bloque contiene una referencia criptográfica al anterior, haciendo visible una alteración. En prueba de trabajo, los mineros compiten usando cómputo; en prueba de participación, validadores bloquean activos y siguen reglas de consenso. Las confirmaciones reducen la probabilidad de reversión, pero no corrigen una dirección equivocada ni garantizan recuperar fondos. Un explorador permite consultar identificador, dirección, importe, comisión, bloque y estado. La transparencia del registro tampoco garantiza que el token o contrato sea legítimo: solo confirma lo ocurrido en esa red.",
+    "Una wallet no guarda monedas como una carpeta; administra claves que permiten autorizar movimientos registrados en la red. En una plataforma custodial, la empresa controla las claves y el usuario depende de ella. En una wallet no custodial, el usuario controla la frase semilla y también asume toda la responsabilidad. Las wallets calientes están conectadas a internet y son prácticas; las frías mantienen las claves fuera de línea y reducen ciertos ataques. La frase semilla debe escribirse fuera de internet, conservarse en un lugar privado y jamás compartirse. Quien la obtiene puede mover los activos sin pedir permiso. Antes de recibir fondos, verifica red, dirección y una transferencia pequeña de prueba.",
+    "Las stablecoins intentan conservar una referencia estable, normalmente un dólar, pero no son idénticas al dinero de un banco central. Pueden depender de reservas, garantías cripto o mecanismos algorítmicos; por ello existen riesgos de emisor, congelamiento, pérdida de paridad y regulación. Además, un mismo símbolo como USDT circula en varias redes. La dirección, la red de origen y la red de destino deben ser compatibles. Las comisiones y tiempos cambian entre Ethereum, Tron, BNB Chain y otras redes. Antes de enviar, confirma activo, red, dirección completa, memo o etiqueta cuando corresponda, importe y comisión. Una operación blockchain normalmente no puede cancelarse.",
+  ],
+  mercado: [
+    "Una vela representa el comportamiento del precio durante un periodo definido. Registra apertura, máximo, mínimo y cierre. Si el cierre supera la apertura, el cuerpo suele mostrarse alcista; si queda debajo, bajista. Las mechas señalan precios visitados que no se mantuvieron hasta el cierre. Una mecha larga puede sugerir rechazo, pero su significado depende de la tendencia, el volumen y la zona donde aparece. Una sola vela no predice el futuro. Para interpretarla compara las velas anteriores, observa si aparece en soporte o resistencia y espera el cierre del periodo. Analizar una vela todavía abierta puede llevar a conclusiones que desaparecen segundos después.",
+    "La temporalidad determina cuánta información resume cada vela. En 15 minutos se observan movimientos rápidos y mucho ruido; en cuatro horas o un día aparece una estructura más amplia. Un activo puede subir dentro de una corrección de tendencia bajista, por eso conviene comenzar por el marco mayor y después buscar precisión en uno menor. La temporalidad también debe coincidir con el horizonte de la práctica: una decisión de varios días no debería depender únicamente de una vela de un minuto. Cambiar de marco solo para encontrar una señal que confirme lo que deseas es un sesgo. Define antes qué temporalidades utilizarás y mantén la misma regla al evaluar resultados.",
+    "La tendencia se estudia observando secuencias de máximos y mínimos. Máximos y mínimos ascendentes muestran dominio comprador; descendentes, dominio vendedor. Si el precio oscila sin progresar, existe un rango y las estrategias de tendencia pierden precisión. Una ruptura de estructura ocurre cuando se supera un punto relevante, preferentemente con cierre y participación. No todo movimiento contrario cambia la tendencia: puede ser un retroceso normal. Distinguir impulso y corrección evita entrar tarde. Marca en el gráfico puntos evidentes, no cada fluctuación pequeña, y define qué nivel invalidaría tu lectura. La estructura describe lo que el precio hizo; no promete lo que hará después.",
+    "Soporte y resistencia son zonas donde compradores o vendedores reaccionaron anteriormente. No deben trazarse como números perfectos porque el mercado suele penetrarlas antes de decidir. Una zona gana relevancia por cantidad de reacciones, temporalidad y movimiento posterior, aunque demasiadas pruebas pueden debilitarla. Cuando una resistencia se rompe puede actuar como soporte, pero el cambio requiere confirmación. Las falsas rupturas ocurren cuando el precio atraviesa una zona y regresa rápidamente. Para reducir errores, espera cierre, revisa volumen y define invalidación. Una entrada siempre debe incluir un escenario alternativo: si el nivel no se sostiene, la idea queda descartada y no se modifica el plan para evitar aceptar la pérdida.",
+  ],
+  indicadores: [
+    "El RSI compara la magnitud de movimientos recientes y suele expresarse entre 0 y 100. Valores altos muestran impulso comprador y valores bajos impulso vendedor, pero 70 y 30 no son botones automáticos de venta o compra. En tendencias fuertes el RSI puede permanecer extremo durante bastante tiempo. También pueden observarse divergencias, cuando precio e indicador avanzan de manera distinta, aunque una divergencia puede tardar en resolverse. Úsalo como confirmación de estructura, no como motivo único. Pregunta primero dónde está el precio, qué tendencia domina y qué riesgo aceptarías. Después utiliza el RSI para evaluar si el impulso acompaña o se debilita.",
+    "Una media móvil calcula el promedio de precios de una cantidad determinada de periodos. La media simple asigna el mismo peso a todos; la exponencial da mayor importancia a datos recientes. Su inclinación ayuda a visualizar dirección y puede funcionar como referencia dinámica, pero siempre reacciona después del precio. Los cruces entre medias son claros visualmente y, al mismo tiempo, pueden llegar cuando gran parte del movimiento ya ocurrió. En rangos producen múltiples señales falsas. No existe un periodo universalmente correcto: debe mantenerse constante durante la evaluación. Combina medias con estructura, zonas y volumen, evitando acumular varias medias que entregan esencialmente la misma información.",
+    "El MACD se construye con la diferencia entre medias exponenciales, una línea de señal y un histograma. Un cruce puede mostrar cambio de impulso; el histograma permite observar si esa diferencia aumenta o disminuye. Estar sobre cero suele acompañar una fase positiva y estar debajo una negativa, pero no garantiza continuidad. Como deriva del precio, también es retrasado y puede fallar en movimientos laterales. Una lectura útil compara dirección del precio, posición respecto a una zona y comportamiento del histograma. Si estructura y volumen contradicen el cruce, la señal pierde calidad. Evalúa siempre varios ejemplos, incluyendo fallos, antes de incorporar el MACD a una regla de práctica.",
+    "El volumen aproxima la participación detrás de un movimiento. Una ruptura acompañada por aumento de volumen suele tener más interés que otra con actividad débil, aunque el volumen disponible puede variar según plataforma y mercado. La confluencia aparece cuando elementos diferentes apoyan una misma hipótesis: por ejemplo, tendencia, soporte, vela de confirmación y volumen. Usar RSI, MACD y varias medias no siempre es verdadera confluencia porque todos provienen del precio. Selecciona evidencias que midan aspectos distintos y evita exigir tantas condiciones que nunca puedas actuar. Antes de practicar, escribe qué señales deben cumplirse, dónde queda invalidada la idea y cuál será el riesgo máximo.",
+  ],
+  riesgo: [
+    "La primera decisión no es cuánto ganar, sino cuánto estás dispuesto a perder si la hipótesis falla. El riesgo por operación debe ser una porción pequeña y previamente definida del capital virtual. Arriesgar una cantidad constante permite sobrevivir a una serie de pérdidas y comparar prácticas. El tamaño de posición depende de la distancia entre entrada y stop: cuanto más lejano sea el stop, menor debe ser la posición para conservar el mismo riesgo. Concentrar todo en una moneda aumenta la exposición a un solo evento. Diversificar tampoco significa comprar muchos activos correlacionados. En CriptoPulso usa el límite de pérdida antes de operar y nunca aumentes el riesgo para recuperar rápidamente.",
+    "El stop loss es el punto donde la razón técnica de la operación deja de ser válida. No se coloca al azar ni se aleja después de entrar para evitar una pérdida. Primero se identifica la invalidación; después se calcula el tamaño que mantiene la pérdida máxima aceptada. Un stop demasiado cercano puede activarse por ruido normal, mientras uno lejano exige una posición menor. También existen deslizamiento y movimientos bruscos, por lo que un stop no garantiza ejecución exacta en mercados reales. En la práctica virtual registra entrada, stop, objetivo y tamaño antes de comprar. Si no puedes explicar por qué el nivel invalida tu lectura, aún no existe un plan completo.",
+    "La relación riesgo/beneficio compara la pérdida prevista con la ganancia objetivo. Si arriesgas 10 para buscar 20, la relación es 1 a 2. Esto no significa que ganarás dos veces lo arriesgado: el precio puede alcanzar el stop y la probabilidad importa. Una estrategia con menor tasa de acierto puede ser viable si sus ganancias medias superan claramente sus pérdidas, mientras una alta tasa de acierto puede ocultar pérdidas ocasionales enormes. El objetivo debe basarse en estructura y zonas posibles, no en el número que deseas ganar. Antes de entrar calcula ambos escenarios y descarta operaciones cuyo beneficio potencial no compense el riesgo y la incertidumbre.",
+    "El diario convierte experiencias aisladas en información. Registra fecha, activo, temporalidad, hipótesis, captura, entrada, stop, objetivo, tamaño, emoción, salida y resultado. Añade si respetaste las reglas, porque una operación ganadora ejecutada impulsivamente sigue siendo un error de proceso. Revisa grupos de al menos diez prácticas para identificar tasa de acierto, ganancia media, pérdida media y fallos repetidos. Después modifica una sola regla y vuelve a probarla; cambiar todo impide saber qué mejoró. La disciplina incluye dejar de operar cuando alcanzas el límite diario, no perseguir pérdidas y aceptar que quedarse fuera también es una decisión válida.",
+  ],
+  simulacion: [
+    "Una hipótesis de operación debe ser específica y falsable. Incluye activo, dirección, temporalidad, estructura observada, confirmaciones, entrada, invalidación y objetivo. Decir “creo que subirá” no permite evaluar nada; decir “si cierra sobre resistencia con volumen, practicaré una compra y saldré si vuelve bajo la zona” sí establece condiciones. La hipótesis se escribe antes de ver el resultado para evitar justificar después cualquier movimiento. También debe contemplar no operar si falta una condición. Usa las señales de CriptoPulso como punto de análisis, no como orden automática, y contrástalas con el gráfico y tu límite de riesgo.",
+    "Ejecutar significa seguir las condiciones planificadas. Si el precio se aleja de la entrada, no se persigue por miedo a perder la oportunidad; se espera otra configuración. Después de abrir, no se amplía el stop ni se aumenta la posición sin una regla previamente probada. El tamaño y el límite de pérdida deben configurarse antes de pulsar comprar. Las emociones más comunes son miedo, euforia, impaciencia y deseo de recuperar; anótalas sin juzgarte. El objetivo de la simulación no es producir una cifra espectacular, sino aprender un proceso repetible. Una operación omitida por no cumplir condiciones demuestra disciplina, no fracaso.",
+    "Al cerrar una posición se mide resultado y calidad de ejecución. Ganar no convierte automáticamente la decisión en buena, porque una entrada sin plan puede beneficiarse del azar. Del mismo modo, una pérdida controlada puede ser una operación correctamente ejecutada. Compara precio de entrada y salida, comisiones hipotéticas, duración y riesgo asumido. Clasifica la práctica: plan respetado, error de análisis o error de ejecución. Luego escribe una observación concreta, como esperar el cierre de vela o reducir tamaño. Evita modificar inmediatamente la estrategia por una sola pérdida. El aprendizaje surge de revisar patrones repetidos con criterios iguales.",
+    "Una serie de diez operaciones permite calcular métricas básicas. La tasa de acierto es ganadoras dividido entre total; la ganancia media y pérdida media muestran la magnitud típica; la expectativa combina frecuencia y tamaño de resultados. También registra la caída máxima del capital y cuántas reglas incumpliste. Diez prácticas siguen siendo una muestra pequeña, pero son mejores que juzgar por un caso. Separa resultados por moneda y temporalidad para no mezclar contextos diferentes. Al terminar, conserva lo que funcionó, selecciona un solo ajuste y prueba otra serie. El dinero virtual permite repetir este ciclo sin arriesgar patrimonio real.",
+  ],
+  estafas: [
+    "Las estafas suelen combinar una promesa atractiva con urgencia y autoridad aparente. Rentabilidad fija, cero riesgo, bonos por depositar hoy, capturas de ganancias y supuestos asesores que escriben en privado son señales de alerta. Un logotipo conocido o muchos seguidores no prueban legitimidad. Investiga dominio, antigüedad, responsables, condiciones de retiro y advertencias independientes. Nunca envíes dinero para “liberar” una ganancia ni aceptes instalar programas de acceso remoto. Las recomendaciones de CriptoPulso son educativas y no solicitan entregar fondos para invertir en tu nombre. Si una oferta impide hacer preguntas o verificar información, aléjate.",
+    "El phishing imita páginas, correos y aplicaciones para robar credenciales. Una letra cambiada, subdominio engañoso o enlace acortado puede dirigir a un sitio falso idéntico al original. Accede escribiendo la dirección o usando un marcador verificado; revisa el dominio completo antes de iniciar sesión. Las tiendas de aplicaciones también pueden contener copias, por lo que debes confirmar desarrollador y sitio oficial. Ningún soporte legítimo necesita tu frase semilla. Tampoco la escribas en formularios, enlaces, chats o supuestas herramientas de recuperación. Ante un mensaje urgente, detente y verifica mediante un canal distinto antes de realizar cualquier acción.",
+    "La seguridad depende de varias capas. Utiliza una contraseña larga y única para correo, plataforma y exchange; un gestor evita reutilizarlas. Activa autenticación de dos factores con aplicación o llave física cuando esté disponible, conserva códigos de recuperación fuera de línea y protege especialmente el correo porque permite restablecer otras cuentas. Mantén sistema y navegador actualizados, bloquea el dispositivo y evita operar desde redes o equipos desconocidos. Revisa sesiones activas, direcciones autorizadas y notificaciones. Para montos relevantes, separa una wallet de uso frecuente de otra de resguardo. Ninguna medida elimina todo riesgo, pero varias capas reducen la posibilidad de una pérdida total.",
+    "Si sospechas un incidente, actúa con orden. Desde un dispositivo seguro cambia primero la contraseña del correo y luego las cuentas vinculadas; revoca sesiones, claves API y aplicaciones desconocidas. Si la frase semilla pudo filtrarse, crea una wallet segura y mueve los fondos restantes sin volver a utilizar la comprometida. Contacta a la plataforma desde su sitio oficial y documenta horarios, direcciones, identificadores de transacción, mensajes y capturas para reportar. No pagues a personas que prometen recuperar fondos garantizadamente: existe una segunda estafa dirigida a víctimas. Después revisa cómo ocurrió el acceso y corrige la causa antes de volver a operar.",
+  ],
+};
+
+const moduleQuizzes: Record<string, QuizQuestion[]> = {
+  fundamentos: [
+    { statement: "Una capitalización alta garantiza que una criptomoneda sea segura.", answer: false, explanation: "La capitalización describe tamaño aproximado, no seguridad ni calidad." },
+    { statement: "Una blockchain permite consultar transacciones mediante exploradores.", answer: true, explanation: "Los exploradores muestran datos públicos de la red y sus confirmaciones." },
+    { statement: "Quien obtiene tu frase semilla puede controlar los activos de esa wallet.", answer: true, explanation: "La frase permite reconstruir las claves; nunca debe compartirse." },
+    { statement: "Para enviar USDT basta con que el símbolo sea igual, sin revisar la red.", answer: false, explanation: "Origen y destino deben utilizar una red compatible." },
+  ],
+  mercado: [
+    { statement: "Una vela todavía abierta puede cambiar antes de cerrar.", answer: true, explanation: "Máximo, mínimo y cierre continúan variando durante el periodo." },
+    { statement: "La tendencia debe analizarse en una sola temporalidad elegida después de entrar.", answer: false, explanation: "Las temporalidades se definen antes y se inicia por el contexto mayor." },
+    { statement: "Máximos y mínimos ascendentes suelen describir una estructura alcista.", answer: true, explanation: "Esa secuencia refleja progreso comprador mientras no sea invalidada." },
+    { statement: "Soporte y resistencia son precios exactos que nunca se atraviesan.", answer: false, explanation: "Son zonas y pueden existir penetraciones o falsas rupturas." },
+  ],
+  indicadores: [
+    { statement: "Un RSI sobre 70 obliga a vender inmediatamente.", answer: false, explanation: "Mide impulso y puede permanecer extremo en tendencias fuertes." },
+    { statement: "Las medias móviles reaccionan después del precio.", answer: true, explanation: "Se calculan con precios anteriores y, por ello, son retrasadas." },
+    { statement: "El MACD debe combinarse con estructura y volumen.", answer: true, explanation: "Un cruce aislado puede producir señales falsas." },
+    { statement: "Usar muchos indicadores derivados del precio siempre crea confluencia independiente.", answer: false, explanation: "Pueden repetir la misma información bajo fórmulas distintas." },
+  ],
+  riesgo: [
+    { statement: "El tamaño de posición debe ajustarse a la distancia del stop.", answer: true, explanation: "Así se mantiene constante la pérdida máxima prevista." },
+    { statement: "Conviene alejar el stop después de entrar para no aceptar una pérdida.", answer: false, explanation: "Eso aumenta el riesgo y rompe la invalidación planificada." },
+    { statement: "Una relación 1 a 2 garantiza que la operación será ganadora.", answer: false, explanation: "Solo compara pérdida y beneficio posibles; no asegura probabilidad." },
+    { statement: "Una operación ganadora puede estar mal ejecutada si incumplió el plan.", answer: true, explanation: "El proceso debe evaluarse además del resultado." },
+  ],
+  simulacion: [
+    { statement: "Una hipótesis útil debe incluir cuándo queda invalidada.", answer: true, explanation: "Debe poder demostrarse equivocada y limitar el riesgo." },
+    { statement: "Si el precio se aleja, es correcto perseguirlo para no perder la oportunidad.", answer: false, explanation: "Se espera otra configuración si ya no se cumple la entrada." },
+    { statement: "Una pérdida controlada puede provenir de una buena decisión.", answer: true, explanation: "El mercado es incierto; importa respetar un proceso sólido." },
+    { statement: "Una sola operación basta para demostrar que una estrategia funciona.", answer: false, explanation: "Se necesitan series comparables y métricas repetidas." },
+  ],
+  estafas: [
+    { statement: "La rentabilidad garantizada y sin riesgo es una señal de alerta.", answer: true, explanation: "Ninguna inversión legítima elimina el riesgo." },
+    { statement: "El soporte técnico puede solicitar tu frase semilla para verificar la cuenta.", answer: false, explanation: "La frase semilla nunca debe entregarse a ninguna persona." },
+    { statement: "Una contraseña única y autenticación de dos factores mejoran la protección.", answer: true, explanation: "Son capas diferentes que reducen accesos no autorizados." },
+    { statement: "Después de un robo conviene pagar a quien garantice recuperar los fondos.", answer: false, explanation: "Las falsas recuperaciones son una estafa frecuente contra víctimas." },
+  ],
+};
+
 const fallback: Coin[] = [
   {
     id: "bitcoin",
@@ -590,6 +674,10 @@ export default function Home() {
     whatsapp?: string;
   } | null>(null);
   const [openCourse, setOpenCourse] = useState("fundamentos");
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, boolean>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>(
+    {},
+  );
   const visibleCoins = hasPaidAccess ? coins : coins.slice(0, 5);
   const coin = visibleCoins.find((c) => c.id === selected) ?? visibleCoins[0];
   const loadAccess = async (user: User | null) => {
@@ -2425,6 +2513,10 @@ export default function Home() {
                         <span>LECCIÓN {index + 1}</span>
                         <h3>{lesson.title}</h3>
                         <p>{lesson.content}</p>
+                        <div className="extended-reading">
+                          <b>Lectura completa</b>
+                          <p>{lessonReadings[course.id]?.[index]}</p>
+                        </div>
                         <div>
                           <b>Práctica guiada</b>
                           <p>{lesson.practice}</p>
@@ -2432,6 +2524,107 @@ export default function Home() {
                       </article>
                     ))}
                 </div>
+                {hasPaidAccess && (
+                  <section className="module-exam">
+                    <div className="panel-label">EVALUACIÓN DEL MÓDULO</div>
+                    <h2>Verdadero o falso</h2>
+                    <p>
+                      Responde después de leer las cuatro lecciones. Obtendrás
+                      el resultado y una explicación para cada respuesta.
+                    </p>
+                    {moduleQuizzes[course.id].map((question, index) => {
+                      const answerKey = `${course.id}-${index}`;
+                      const selectedAnswer = quizAnswers[answerKey];
+                      const submitted = quizSubmitted[course.id];
+                      const correct = selectedAnswer === question.answer;
+                      return (
+                        <article
+                          className={`quiz-question ${submitted ? (correct ? "quiz-correct" : "quiz-wrong") : ""}`}
+                          key={question.statement}
+                        >
+                          <b>
+                            {index + 1}. {question.statement}
+                          </b>
+                          <div>
+                            {[true, false].map((value) => (
+                              <button
+                                type="button"
+                                className={
+                                  selectedAnswer === value ? "selected" : ""
+                                }
+                                disabled={submitted}
+                                onClick={() =>
+                                  setQuizAnswers((answers) => ({
+                                    ...answers,
+                                    [answerKey]: value,
+                                  }))
+                                }
+                                key={String(value)}
+                              >
+                                {value ? "Verdadero" : "Falso"}
+                              </button>
+                            ))}
+                          </div>
+                          {submitted && (
+                            <p>
+                              <strong>{correct ? "Correcto." : "Incorrecto."}</strong>{" "}
+                              {question.explanation}
+                            </p>
+                          )}
+                        </article>
+                      );
+                    })}
+                    {!quizSubmitted[course.id] ? (
+                      <button
+                        className="exam-submit"
+                        disabled={moduleQuizzes[course.id].some(
+                          (_question, index) =>
+                            quizAnswers[`${course.id}-${index}`] === undefined,
+                        )}
+                        onClick={() =>
+                          setQuizSubmitted((submitted) => ({
+                            ...submitted,
+                            [course.id]: true,
+                          }))
+                        }
+                      >
+                        Calificar examen
+                      </button>
+                    ) : (
+                      <div className="exam-result">
+                        <b>
+                          Resultado:{" "}
+                          {
+                            moduleQuizzes[course.id].filter(
+                              (question, index) =>
+                                quizAnswers[`${course.id}-${index}`] ===
+                                question.answer,
+                            ).length
+                          }
+                          /{moduleQuizzes[course.id].length}
+                        </b>
+                        <button
+                          onClick={() => {
+                            setQuizSubmitted((submitted) => ({
+                              ...submitted,
+                              [course.id]: false,
+                            }));
+                            setQuizAnswers((answers) => {
+                              const next = { ...answers };
+                              moduleQuizzes[course.id].forEach(
+                                (_question, index) =>
+                                  delete next[`${course.id}-${index}`],
+                              );
+                              return next;
+                            });
+                          }}
+                        >
+                          Volver a intentar
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
                 {!hasPaidAccess && (
                   <div className="premium-gate academy-gate">
                     <b>Lección introductoria gratuita completada</b>
