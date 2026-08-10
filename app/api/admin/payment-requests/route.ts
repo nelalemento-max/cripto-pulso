@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   const { data, error } = await auth.admin
     .from("payment_requests")
     .select(
-      "id,full_name,email,country,plan,payment_method,amount_label,payment_reference,receipt_path,status,created_at",
+      "id,full_name,email,country,plan,payment_method,amount_label,paid_amount,payment_reference,receipt_path,status,created_at",
     )
     .order("created_at", { ascending: false });
   if (error)
@@ -76,13 +76,45 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, status: "rejected" });
   }
   const redirectTo = `${new URL(request.url).origin}/auth/activate`;
+  const existing = await auth.admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+  const existingUser = existing.data.users.find(
+    (user) => user.email?.toLowerCase() === payment.email.toLowerCase(),
+  );
+  if (existingUser) {
+    await auth.admin
+      .from("profiles")
+      .update({ status: "active" })
+      .eq("user_id", existingUser.id);
+    await auth.admin
+      .from("payment_requests")
+      .update({
+        status: "approved",
+        reviewed_by: auth.user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    return NextResponse.json({
+      ok: true,
+      status: "approved",
+      message:
+        "Pago verificado. El correo ya tenía una cuenta y puede iniciar sesión.",
+    });
+  }
   const { error: inviteError } = await auth.admin.auth.admin.inviteUserByEmail(
     payment.email,
     { redirectTo },
   );
-  if (inviteError && !inviteError.message.toLowerCase().includes("already"))
+  if (inviteError)
     return NextResponse.json(
-      { error: "No se pudo enviar la invitación" },
+      {
+        error:
+          inviteError.code === "email_address_not_authorized"
+            ? "Supabase no puede enviar a clientes hasta configurar un servidor SMTP propio."
+            : `No se pudo enviar la invitación: ${inviteError.message}`,
+      },
       { status: 400 },
     );
   const { data: invited } = await auth.admin.auth.admin.listUsers({
