@@ -38,6 +38,7 @@ type PaymentRequest = {
   plan: string;
   payment_method: string;
   amount_label: string;
+  paid_amount: string;
   payment_reference?: string;
   receipt_path: string;
   receipt_url?: string;
@@ -461,9 +462,10 @@ export default function Home() {
     const body = await response.json();
     setNotice(
       response.ok
-        ? action === "approve"
-          ? "Pago aprobado e invitación enviada."
-          : "Solicitud rechazada."
+        ? (body.message ??
+            (action === "approve"
+              ? "Pago aprobado e invitación enviada."
+              : "Solicitud rechazada."))
         : (body.error ?? "No se pudo procesar."),
     );
     if (response.ok) loadPaymentRequests();
@@ -1363,6 +1365,15 @@ export default function Home() {
               />
             </label>
             <label>
+              Importe exacto pagado y moneda
+              <input
+                name="paidAmount"
+                required
+                maxLength={40}
+                placeholder="Ej.: Bs 11,86 o 10 USDT"
+              />
+            </label>
+            <label>
               Número o referencia del pago (opcional)
               <input name="reference" maxLength={120} />
             </label>
@@ -1663,9 +1674,13 @@ export default function Home() {
               </b>
             </article>
             <article className="panel">
-              <small>HABILITADAS HOY</small>
+              <small>PAGOS VERIFICADOS</small>
               <b>
-                {adminRequests.filter((r) => r.status === "invited").length}
+                {
+                  adminRequests.filter(
+                    (r) => r.status === "invited" || r.status === "approved",
+                  ).length
+                }
               </b>
             </article>
             <article className="panel">
@@ -1682,6 +1697,7 @@ export default function Home() {
               </div>
               <button>Exportar ventas</button>
             </div>
+            {notice && <div className="plan-notice">{notice}</div>}
             <div className="admin-row admin-head">
               <span>USUARIO</span>
               <span>PLAN</span>
@@ -1690,61 +1706,128 @@ export default function Home() {
               <span>ESTADO</span>
               <span>ACCIÓN</span>
             </div>
-            {adminRequests.length ? (
-              adminRequests.map((r) => (
-                <div className="admin-row" key={r.id}>
-                  <b>
-                    {r.full_name}
-                    <small>{r.email}</small>
-                  </b>
-                  <span>
-                    {r.plan
-                      .replace("basic_bo", "Básico BO")
-                      .replace("crypto_10", "Cripto 10")
-                      .replace("crypto_20", "Cripto 20")}
-                  </span>
-                  <span>{r.amount_label}</span>
-                  <span>
-                    {r.payment_method === "qr" ? "QR Bolivia" : "Airtm"}
-                  </span>
-                  <em
-                    className={
-                      r.status === "invited"
-                        ? "up"
-                        : r.status === "rejected"
-                          ? "down"
-                          : "wait-color"
-                    }
-                  >
-                    {r.status === "pending"
-                      ? "Pendiente"
-                      : r.status === "invited"
-                        ? "Invitado"
-                        : "Rechazado"}
-                  </em>
-                  <span className="admin-actions">
-                    {r.receipt_url && (
-                      <a href={r.receipt_url} target="_blank" rel="noreferrer">
-                        Ver comprobante
-                      </a>
-                    )}
-                    <button
-                      disabled={r.status !== "pending"}
-                      onClick={() => reviewPayment(r.id, "approve")}
+            {adminRequests.some((r) => r.status === "pending") ? (
+              adminRequests
+                .filter((r) => r.status === "pending")
+                .map((r) => (
+                  <div className="admin-row" key={r.id}>
+                    <b>
+                      {r.full_name}
+                      <small>{r.email}</small>
+                    </b>
+                    <span>
+                      {r.plan
+                        .replace("basic_bo", "Básico BO")
+                        .replace("crypto_10", "Cripto 10")
+                        .replace("crypto_20", "Cripto 20")}
+                    </span>
+                    <span>
+                      <b>{r.paid_amount}</b>
+                      <small>Plan: {r.amount_label}</small>
+                    </span>
+                    <span>
+                      {r.payment_method === "qr" ? "QR Bolivia" : "Airtm"}
+                    </span>
+                    <em
+                      className={
+                        r.status === "invited"
+                          ? "up"
+                          : r.status === "rejected"
+                            ? "down"
+                            : "wait-color"
+                      }
                     >
-                      Aprobar
-                    </button>
-                    <button
-                      disabled={r.status !== "pending"}
-                      onClick={() => reviewPayment(r.id, "reject")}
-                    >
-                      Rechazar
-                    </button>
-                  </span>
-                </div>
-              ))
+                      {r.status === "pending"
+                        ? "Pendiente"
+                        : r.status === "invited"
+                          ? "Invitado"
+                          : "Rechazado"}
+                    </em>
+                    <span className="admin-actions">
+                      {r.receipt_url && (
+                        <a
+                          href={r.receipt_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver comprobante
+                        </a>
+                      )}
+                      <button
+                        disabled={r.status !== "pending"}
+                        onClick={() => reviewPayment(r.id, "approve")}
+                      >
+                        Aprobar
+                      </button>
+                      <button
+                        disabled={r.status !== "pending"}
+                        onClick={() => reviewPayment(r.id, "reject")}
+                      >
+                        Rechazar
+                      </button>
+                    </span>
+                  </div>
+                ))
             ) : (
               <p>No existen solicitudes de pago todavía.</p>
+            )}
+          </article>
+          <article className="admin-table panel">
+            <div className="panel-top">
+              <div>
+                <div className="panel-label">HISTORIAL</div>
+                <h3>Pagos verificados y procesados</h3>
+              </div>
+            </div>
+            <div className="admin-row admin-head">
+              <span>USUARIO</span>
+              <span>PLAN</span>
+              <span>IMPORTE PAGADO</span>
+              <span>MÉTODO</span>
+              <span>ESTADO</span>
+              <span>COMPROBANTE</span>
+            </div>
+            {adminRequests.some((r) => r.status !== "pending") ? (
+              adminRequests
+                .filter((r) => r.status !== "pending")
+                .map((r) => (
+                  <div className="admin-row" key={`history-${r.id}`}>
+                    <b>
+                      {r.full_name}
+                      <small>{r.email}</small>
+                    </b>
+                    <span>
+                      {r.plan
+                        .replace("basic_bo", "Básico BO")
+                        .replace("crypto_10", "Cripto 10")
+                        .replace("crypto_20", "Cripto 20")}
+                    </span>
+                    <span>{r.paid_amount}</span>
+                    <span>
+                      {r.payment_method === "qr" ? "QR Bolivia" : "Airtm"}
+                    </span>
+                    <em className={r.status === "rejected" ? "down" : "up"}>
+                      {r.status === "rejected"
+                        ? "Rechazado"
+                        : r.status === "approved"
+                          ? "Verificado"
+                          : "Invitado"}
+                    </em>
+                    <span>
+                      {r.receipt_url && (
+                        <a
+                          href={r.receipt_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver comprobante
+                        </a>
+                      )}
+                    </span>
+                  </div>
+                ))
+            ) : (
+              <p>Aún no existen pagos procesados.</p>
             )}
           </article>
           <div className="admin-note panel">
