@@ -1013,7 +1013,19 @@ export default function Home() {
     loadComments();
     loadMetrics();
     trackingIdentity();
+    if (!localStorage.getItem("criptopulso-bolivia-opened")) {
+      localStorage.setItem("criptopulso-bolivia-opened", "yes");
+      setView("dollar");
+    }
   }, []);
+  useEffect(() => {
+    if (view !== "dollar") return;
+    const timer = window.setInterval(
+      () => setSelectedDollarPoint((point) => (point + 1) % dollarHistory.length),
+      3200,
+    );
+    return () => window.clearInterval(timer);
+  }, [view]);
   useEffect(() => {
     const { visitorId, sessionId, device } = trackingIdentity();
     fetch("/api/visits", {
@@ -1233,7 +1245,7 @@ export default function Home() {
           {[
             ["market", "Mercado"],
             ["simulator", "Simulador"],
-            ["dollar", "Dólar BO"],
+            ["dollar", "Datos Bolivia"],
             ["community", "Comunidad"],
             ["academy", "Academia"],
             ["plans", "Planes"],
@@ -1242,7 +1254,7 @@ export default function Home() {
               key={id}
               className={view === id ? "active" : ""}
               onClick={() => {
-                if (!hasPaidAccess && ["dollar", "community"].includes(id)) {
+                if (!hasPaidAccess && ["community"].includes(id)) {
                   setNotice("Esta sección forma parte del acceso pagado.");
                   setView("plans");
                   return;
@@ -1251,7 +1263,7 @@ export default function Home() {
               }}
             >
               {label}
-              {!hasPaidAccess && ["dollar", "community"].includes(id)
+              {!hasPaidAccess && ["community"].includes(id)
                 ? " 🔒"
                 : ""}
             </button>
@@ -2891,6 +2903,46 @@ export default function Home() {
       )}
       {view === "dollar" && (
         <section className="page supplemental-data">
+          <header className="bolivia-live-head">
+            <div>
+              <span className="live-dot">● DATOS BOLIVIA · EN MOVIMIENTO</span>
+              <h1>Tu país, <i>más fácil de entender.</i></h1>
+              <p>Dólar, energía, costo familiar y conversación de la comunidad en una sola vista.</p>
+            </div>
+            <span className="bolivia-flag" aria-label="Bandera de Bolivia">🇧🇴</span>
+          </header>
+          <article className="bolivia-visual-board panel">
+            <div className="bo-data-card exchange-card">
+              <span className="data-icon flag-icon">🇧🇴</span>
+              <div><small>USD / BOB · REFERENCIAS</small><b>Bs {blue.buy.toFixed(2)} <em>—</em> Bs {blue.sell.toFixed(2)}</b><span>Compra y venta P2P · {blue.updated}</span></div>
+              <span className="data-icon dollar-icon">$</span>
+            </div>
+            <div className="bo-data-card">
+              <span className="data-icon">⛽</span>
+              <div><small>COMBUSTIBLES REGULADOS</small><b>Desde Bs 6,96/L</b><span>Gasolina · diésel · GLP</span></div>
+              <i className="signal-bars"><u/><u/><u/><u/></i>
+            </div>
+            <div className="bo-data-card">
+              <span className="data-icon barrel-icon">◉</span>
+              <div><small>PETRÓLEO WTI</small><b>USD 78,18/barril</b><span>Equivalente referencial USD 0,49/L</span></div>
+              <i className="tiny-trend">⌁</i>
+            </div>
+            <div className="bo-data-card family-card">
+              <span className="data-icon">🛒</span>
+              <div><small>DECISIONES FAMILIARES</small><b>Compara antes de decidir</b><span>Tipo de cambio, transporte y energía</span></div>
+              <i className="pulse-ring" />
+            </div>
+            <div className="bo-market-strip">
+              {dollarHistory.slice(-8).map((point, index) => (
+                <i key={point.m} style={{height: `${28 + ((point.p2p * 13 + index * 17) % 66)}%`}} className={index % 3 === 0 ? "fall" : ""}/>
+              ))}
+              <div><b>HISTÓRICO USD/BOB</b><span>El periodo destacado cambia automáticamente</span></div>
+            </div>
+            <div className="bo-community-strip">
+              <span>●</span><div><b>COMUNIDAD CRIPTOPULSO</b><small>Comentarios educativos y experiencias de otros usuarios</small></div>
+              <button onClick={() => hasPaidAccess ? setView("community") : setView("plans")}>{hasPaidAccess ? "Ver comunidad" : "Conocer acceso"}</button>
+            </div>
+          </article>
           <article className="point-data panel">
             <div className="panel-label">DATOS DE CADA PUNTO</div>
             <h3>Selecciona un mes del histórico</h3>
