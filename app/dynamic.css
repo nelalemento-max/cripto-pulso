@@ -723,6 +723,26 @@
 .supplemental-data {
   padding-top: 0;
 }
+.bolivia-live-head { display:flex; align-items:center; justify-content:space-between; padding:42px 0 24px; }
+.bolivia-live-head h1 { margin:8px 0; font-size:clamp(34px,5vw,64px); letter-spacing:-.055em; }
+.bolivia-live-head h1 i { color:var(--green); font-style:normal; }
+.bolivia-live-head p { color:var(--muted); margin:0; }
+.bolivia-flag { font-size:54px; filter:drop-shadow(0 0 18px #17d8a144); animation:boFloat 3s ease-in-out infinite; }
+.bolivia-visual-board { padding:14px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:18px; overflow:hidden; }
+.bo-data-card { min-height:116px; display:grid; grid-template-columns:58px 1fr auto; gap:14px; align-items:center; padding:18px; border:1px solid #1b3a31; background:radial-gradient(circle at 100% 0,#12372b 0,transparent 48%),#07130f; position:relative; }
+.bo-data-card:after { content:""; position:absolute; inset:auto 0 0; height:2px; background:linear-gradient(90deg,transparent,var(--green),transparent); transform:translateX(-100%); animation:dataScan 4s linear infinite; }
+.bo-data-card:nth-child(2):after { animation-delay:1s }.bo-data-card:nth-child(3):after { animation-delay:2s }.bo-data-card:nth-child(4):after { animation-delay:3s }
+.data-icon { width:50px; height:50px; border-radius:14px; background:#123d30; display:grid; place-items:center; font-size:25px; color:var(--green); box-shadow:inset 0 0 18px #17d8a115; }
+.dollar-icon { border-radius:50%; font-weight:900; animation:softPulse 2s ease-in-out infinite; }
+.barrel-icon { color:var(--gold); font-size:30px; }
+.bo-data-card small { color:var(--muted); font-size:8px; letter-spacing:.12em; display:block; }
+.bo-data-card b { display:block; font-size:clamp(16px,2vw,23px); margin:7px 0; }.bo-data-card b em{color:var(--green);font-style:normal}.bo-data-card div>span{color:#779087;font-size:8px}
+.signal-bars { width:48px; height:42px; display:flex; align-items:end; gap:4px; }.signal-bars u{width:7px;background:var(--green);animation:barMove 1.5s ease-in-out infinite}.signal-bars u:nth-child(1){height:35%}.signal-bars u:nth-child(2){height:70%;animation-delay:.2s}.signal-bars u:nth-child(3){height:48%;animation-delay:.4s}.signal-bars u:nth-child(4){height:92%;animation-delay:.6s}
+.tiny-trend { color:var(--gold); font-size:48px; animation:trendMove 2.2s ease-in-out infinite; }.pulse-ring{width:35px;height:35px;border:2px solid var(--green);border-radius:50%;animation:ringPulse 1.8s ease-out infinite}
+.bo-market-strip,.bo-community-strip { grid-column:1/-1; min-height:92px; background:#06110e; border:1px solid var(--line); padding:15px 18px; display:flex; align-items:flex-end; gap:7px; overflow:hidden; }
+.bo-market-strip>i { width:12px; background:var(--green); opacity:.75; animation:candleMove 1.8s ease-in-out infinite; }.bo-market-strip>i.fall{background:var(--red)}.bo-market-strip>i:nth-child(2n){animation-delay:.35s}.bo-market-strip>div{margin-left:12px;align-self:center}.bo-market-strip b,.bo-community-strip b{display:block;font-size:10px}.bo-market-strip span,.bo-community-strip small{color:var(--muted);font-size:8px}
+.bo-community-strip { align-items:center; }.bo-community-strip>span{color:var(--green);animation:softPulse 1.4s infinite}.bo-community-strip div{flex:1}.bo-community-strip button{background:#12352c;border:1px solid #256650;color:var(--green);padding:10px 14px;font-size:9px}
+@keyframes dataScan{to{transform:translateX(100%)}}@keyframes softPulse{50%{transform:scale(1.08);filter:brightness(1.25)}}@keyframes barMove{50%{height:25%}}@keyframes trendMove{50%{transform:translateY(-7px)}}@keyframes ringPulse{to{transform:scale(1.55);opacity:0}}@keyframes candleMove{50%{transform:scaleY(.45);opacity:1}}@keyframes boFloat{50%{transform:translateY(-8px)}}
 .point-data,
 .energy-panel {
   padding: 22px;
@@ -996,6 +1016,8 @@
   }
 }
 @media (max-width: 600px) {
+  .bolivia-live-head { padding-top:28px; align-items:flex-start; }.bolivia-live-head h1{font-size:38px}.bolivia-live-head p{font-size:11px;line-height:1.5}.bolivia-flag{font-size:38px}
+  .bolivia-visual-board { grid-template-columns:1fr; padding:9px; }.bo-data-card{min-height:104px;padding:13px;grid-template-columns:48px 1fr auto;gap:10px}.data-icon{width:42px;height:42px;font-size:20px}.exchange-card .dollar-icon{display:none}.bo-market-strip,.bo-community-strip{grid-column:1;padding:12px}.bo-community-strip{align-items:flex-start;flex-wrap:wrap}.bo-community-strip button{width:100%}
   .dollar-history {
     overflow-x: auto;
   }
