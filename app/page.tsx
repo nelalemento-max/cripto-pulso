@@ -84,35 +84,41 @@ const nationalReferences: Record<string, { price: number; unit: string; source: 
   Arroz: { price: 13.67, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
   Azúcar: { price: 6.17, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
 };
-const departmentShapes = [
-  { name: "Pando", path: "M90 42 L258 22 L310 82 L280 150 L120 162 L62 108 Z", x: 177, y: 101 },
-  { name: "Beni", path: "M258 22 L468 70 L558 190 L510 300 L330 280 L280 150 L310 82 Z", x: 406, y: 171 },
-  { name: "La Paz", path: "M62 108 L120 162 L280 150 L250 320 L150 390 L70 320 L30 220 Z", x: 145, y: 256 },
-  { name: "Cochabamba", path: "M280 150 L330 280 L410 340 L325 420 L235 390 L250 320 Z", x: 309, y: 329 },
-  { name: "Santa Cruz", path: "M330 280 L510 300 L570 420 L520 560 L400 500 L325 420 L410 340 Z", x: 473, y: 408 },
-  { name: "Oruro", path: "M70 320 L150 390 L235 390 L220 500 L115 505 L50 430 Z", x: 142, y: 430 },
-  { name: "Potosí", path: "M115 505 L220 500 L325 420 L400 500 L335 590 L250 670 L125 620 L80 550 Z", x: 230, y: 555 },
-  { name: "Chuquisaca", path: "M325 420 L400 500 L520 560 L420 610 L335 590 Z", x: 412, y: 535 },
-  { name: "Tarija", path: "M335 590 L420 610 L400 680 L250 670 Z", x: 354, y: 640 },
-];
+const svgDepartmentOrder = ["Tarija", "Potosí", "Chuquisaca", "Oruro", "Cochabamba", "Santa Cruz", "La Paz", "Beni", "Pando"];
 
 function BoliviaDepartmentMap({ selected, reports, onSelect }: { selected: string; reports: BasketPriceReport[]; onSelect: (department: string) => void }) {
-  return (
-    <svg className="bolivia-department-map" viewBox="0 0 600 710" role="group" aria-label="Mapa interactivo de los departamentos de Bolivia">
-      <defs><filter id="mapGlow"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-      {departmentShapes.map((department) => {
-        const count = reports.filter((report) => report.department === department.name).length;
-        const active = selected === department.name;
-        return (
-          <g key={department.name} className={`department-region ${active ? "active" : ""}`} role="button" tabIndex={0} aria-pressed={active} aria-label={`${department.name}, ${count} reportes verificados`} onClick={() => onSelect(department.name)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelect(department.name); }}>
-            <path d={department.path}/>
-            <text x={department.x} y={department.y} textAnchor="middle">{department.name}</text>
-            <text className="department-count" x={department.x} y={department.y + 17} textAnchor="middle">{count ? `${count} reporte${count === 1 ? "" : "s"}` : "Sin reportes"}</text>
-          </g>
-        );
-      })}
-    </svg>
-  );
+  const mapRef = useRef<HTMLObjectElement>(null);
+  const prepareMap = () => {
+    const document = mapRef.current?.contentDocument;
+    if (!document) return;
+    const paths = Array.from(document.querySelectorAll("svg > path")).slice(0, 9) as SVGPathElement[];
+    paths.forEach((path, index) => {
+      const department = svgDepartmentOrder[index];
+      const active = selected === department;
+      const count = reports.filter((report) => report.department === department).length;
+      path.style.setProperty("fill", active ? "#18b889" : index % 2 ? "#102a22" : "#123128", "important");
+      path.style.setProperty("stroke", active ? "#b9ffe8" : "#70998a", "important");
+      path.style.setProperty("stroke-width", active ? "9" : "5", "important");
+      path.style.setProperty("cursor", "pointer", "important");
+      path.style.setProperty("filter", active ? "drop-shadow(0 0 24px #17d8a1)" : "drop-shadow(0 5px 4px #0008)", "important");
+      path.style.transition = "fill .2s, stroke .2s, filter .2s";
+      path.setAttribute("tabindex", "0");
+      path.setAttribute("role", "button");
+      path.setAttribute("aria-label", `${department}, ${count} reportes verificados`);
+      path.onclick = () => onSelect(department);
+      path.onmouseenter = () => { if (!active) path.style.setProperty("fill", "#17644f", "important"); };
+      path.onmouseleave = () => { if (!active) path.style.setProperty("fill", index % 2 ? "#102a22" : "#123128", "important"); };
+      path.onkeydown = (event) => { if (event.key === "Enter" || event.key === " ") onSelect(department); };
+    });
+    document.querySelectorAll("svg > text").forEach((label) => {
+      (label as SVGTextElement).style.setProperty("fill", "#eaf7f2", "important");
+      (label as SVGTextElement).style.setProperty("font-family", "Arial, sans-serif", "important");
+      (label as SVGTextElement).style.setProperty("font-weight", "700", "important");
+      (label as SVGTextElement).style.pointerEvents = "none";
+    });
+  };
+  useEffect(prepareMap, [selected, reports]);
+  return <object ref={mapRef} className="bolivia-department-map" data="/bolivia-departments.svg" type="image/svg+xml" aria-label="Mapa real e interactivo de los departamentos de Bolivia" onLoad={prepareMap}>Mapa de Bolivia</object>;
 }
 
 const dollarHistory = [
