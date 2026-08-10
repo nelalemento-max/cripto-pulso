@@ -30,6 +30,20 @@ type TradeLog = {
   usd: number;
   result: number;
 };
+type PaymentRequest = {
+  id: string;
+  full_name: string;
+  email: string;
+  country: string;
+  plan: string;
+  payment_method: string;
+  amount_label: string;
+  payment_reference?: string;
+  receipt_path: string;
+  receipt_url?: string;
+  status: string;
+  created_at: string;
+};
 
 const dollarHistory = [
   { m: "Ago 25", official: 6.96, p2p: 14.12 },
@@ -312,6 +326,7 @@ export default function Home() {
     | "community"
     | "academy"
     | "plans"
+    | "payment"
     | "login"
     | "admin"
   >("market");
@@ -350,22 +365,11 @@ export default function Home() {
   const [paymentMethod, setPaymentMethod] = useState<"qr" | "airtm" | null>(
     null,
   );
-  const [adminRequests, setAdminRequests] = useState([
-    {
-      name: "María Rojas",
-      plan: "Básico Bolivia",
-      paid: "Bs 11,86",
-      method: "QR Bolivia",
-      status: "Pendiente",
-    },
-    {
-      name: "John Miller",
-      plan: "Cripto 10",
-      paid: "10 USDT",
-      method: "Airtm",
-      status: "Pendiente",
-    },
-  ]);
+  const [paymentPlan, setPaymentPlan] = useState<
+    "basic_bo" | "crypto_10" | "crypto_20"
+  >("basic_bo");
+  const [requestStatus, setRequestStatus] = useState("");
+  const [adminRequests, setAdminRequests] = useState<PaymentRequest[]>([]);
   const coin = coins.find((c) => c.id === selected) ?? coins[0];
   const loadAccess = async (user: User | null) => {
     setAuthUser(user);
@@ -424,6 +428,62 @@ export default function Home() {
     setAuthUser(null);
     setIsAdmin(false);
     setView("market");
+  };
+  const loadPaymentRequests = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/admin/payment-requests", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (response.ok) {
+      const body = await response.json();
+      setAdminRequests(body.requests ?? []);
+    }
+  };
+  useEffect(() => {
+    if (isAdmin) loadPaymentRequests();
+  }, [isAdmin]);
+  const reviewPayment = async (id: string, action: "approve" | "reject") => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/admin/payment-requests", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ id, action }),
+    });
+    const body = await response.json();
+    setNotice(
+      response.ok
+        ? action === "approve"
+          ? "Pago aprobado e invitación enviada."
+          : "Solicitud rechazada."
+        : (body.error ?? "No se pudo procesar."),
+    );
+    if (response.ok) loadPaymentRequests();
+  };
+  const submitPaymentRequest = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setRequestStatus("Enviando solicitud…");
+    const response = await fetch("/api/payment-requests", {
+      method: "POST",
+      body: new FormData(e.currentTarget),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setRequestStatus(body.error ?? "No se pudo enviar.");
+      return;
+    }
+    e.currentTarget.reset();
+    setRequestStatus(
+      "Solicitud recibida. Revisaremos el pago y enviaremos la invitación a tu correo.",
+    );
   };
   useEffect(() => {
     fetch(
@@ -1253,6 +1313,82 @@ export default function Home() {
           </div>
         </section>
       )}
+      {view === "payment" && (
+        <section className="page auth-page payment-request-page">
+          <form
+            className="auth-card panel payment-request-form"
+            onSubmit={submitPaymentRequest}
+          >
+            <div className="panel-label">SOLICITUD DE ACCESO</div>
+            <h1>Envía tu comprobante</h1>
+            <p>
+              Verificaremos el pago antes de enviarte una invitación para crear
+              tu contraseña.
+            </p>
+            <input type="hidden" name="plan" value={paymentPlan} />
+            <input
+              className="form-trap"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+            />
+            <label>
+              Nombre completo
+              <input name="fullName" required minLength={2} />
+            </label>
+            <label>
+              Correo para la invitación
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              País
+              <input
+                name="country"
+                required
+                defaultValue={paymentPlan === "basic_bo" ? "Bolivia" : ""}
+              />
+            </label>
+            <label>
+              Plan seleccionado
+              <input
+                readOnly
+                value={
+                  paymentPlan === "basic_bo"
+                    ? "Básico Bolivia · USD 1"
+                    : paymentPlan === "crypto_10"
+                      ? "Cripto 10 · 10 USDT"
+                      : "Cripto 20 · 20 USDT"
+                }
+              />
+            </label>
+            <label>
+              Número o referencia del pago (opcional)
+              <input name="reference" maxLength={120} />
+            </label>
+            <label>
+              Comprobante JPG, PNG, WEBP o PDF
+              <input
+                name="receipt"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                required
+              />
+            </label>
+            {requestStatus && (
+              <div className="plan-notice">{requestStatus}</div>
+            )}
+            <button className="practice">Enviar para verificación</button>
+            <button
+              type="button"
+              className="auth-logout"
+              onClick={() => setView("plans")}
+            >
+              Volver a planes
+            </button>
+          </form>
+        </section>
+      )}
       {view === "dollar" && (
         <section className="page dollar-page">
           <div className="page-title">
@@ -1500,8 +1636,8 @@ export default function Home() {
               </button>
             )}
             <small>
-              No compartas tu contraseña. CriptoPulso nunca te la solicitará
-              por chat.
+              No compartas tu contraseña. CriptoPulso nunca te la solicitará por
+              chat.
             </small>
           </form>
         </section>
@@ -1515,19 +1651,21 @@ export default function Home() {
               Verifica el comprobante antes de habilitar capital virtual al
               usuario.
             </p>
-            <button className="auth-logout" onClick={signOut}>Cerrar sesión</button>
+            <button className="auth-logout" onClick={signOut}>
+              Cerrar sesión
+            </button>
           </div>
           <div className="admin-stats">
             <article className="panel">
               <small>SOLICITUDES PENDIENTES</small>
               <b>
-                {adminRequests.filter((r) => r.status === "Pendiente").length}
+                {adminRequests.filter((r) => r.status === "pending").length}
               </b>
             </article>
             <article className="panel">
               <small>HABILITADAS HOY</small>
               <b>
-                {adminRequests.filter((r) => r.status === "Habilitado").length}
+                {adminRequests.filter((r) => r.status === "invited").length}
               </b>
             </article>
             <article className="panel">
@@ -1552,38 +1690,70 @@ export default function Home() {
               <span>ESTADO</span>
               <span>ACCIÓN</span>
             </div>
-            {adminRequests.map((r, i) => (
-              <div className="admin-row" key={r.name}>
-                <b>{r.name}</b>
-                <span>{r.plan}</span>
-                <span>{r.paid}</span>
-                <span>{r.method}</span>
-                <em className={r.status === "Habilitado" ? "up" : "wait-color"}>
-                  {r.status}
-                </em>
-                <button
-                  disabled={r.status === "Habilitado"}
-                  onClick={() =>
-                    setAdminRequests((all) =>
-                      all.map((x, j) =>
-                        j === i ? { ...x, status: "Habilitado" } : x,
-                      ),
-                    )
-                  }
-                >
-                  {r.status === "Habilitado"
-                    ? "Acceso activo"
-                    : "Verificar y habilitar"}
-                </button>
-              </div>
-            ))}
+            {adminRequests.length ? (
+              adminRequests.map((r) => (
+                <div className="admin-row" key={r.id}>
+                  <b>
+                    {r.full_name}
+                    <small>{r.email}</small>
+                  </b>
+                  <span>
+                    {r.plan
+                      .replace("basic_bo", "Básico BO")
+                      .replace("crypto_10", "Cripto 10")
+                      .replace("crypto_20", "Cripto 20")}
+                  </span>
+                  <span>{r.amount_label}</span>
+                  <span>
+                    {r.payment_method === "qr" ? "QR Bolivia" : "Airtm"}
+                  </span>
+                  <em
+                    className={
+                      r.status === "invited"
+                        ? "up"
+                        : r.status === "rejected"
+                          ? "down"
+                          : "wait-color"
+                    }
+                  >
+                    {r.status === "pending"
+                      ? "Pendiente"
+                      : r.status === "invited"
+                        ? "Invitado"
+                        : "Rechazado"}
+                  </em>
+                  <span className="admin-actions">
+                    {r.receipt_url && (
+                      <a href={r.receipt_url} target="_blank" rel="noreferrer">
+                        Ver comprobante
+                      </a>
+                    )}
+                    <button
+                      disabled={r.status !== "pending"}
+                      onClick={() => reviewPayment(r.id, "approve")}
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      disabled={r.status !== "pending"}
+                      onClick={() => reviewPayment(r.id, "reject")}
+                    >
+                      Rechazar
+                    </button>
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p>No existen solicitudes de pago todavía.</p>
+            )}
           </article>
           <div className="admin-note panel">
             <b>Métodos de cobro configurados</b>
             <p>
               Bolivia: QR Yolo Pago de Banco Ganadero a nombre de Nelson Mendoza
-              Torres. Exterior: Airtm mediante airtm.me/nelsonal1klodhs6. Falta
-              definir el correo que tendrá acceso protegido como administrador.
+              Torres. Exterior: Airtm mediante airtm.me/nelsonal1klodhs6. Cada
+              aprobación envía una invitación al correo verificado del
+              estudiante.
             </p>
           </div>
         </section>
@@ -1689,7 +1859,12 @@ export default function Home() {
                 <br />
                 Academia esencial
               </p>
-              <button onClick={() => setPaymentMethod("qr")}>
+              <button
+                onClick={() => {
+                  setPaymentPlan("basic_bo");
+                  setPaymentMethod("qr");
+                }}
+              >
                 Ver QR de pago
               </button>
             </article>
@@ -1706,7 +1881,12 @@ export default function Home() {
                 <br />
                 Comparación de estrategias
               </p>
-              <button onClick={() => setPaymentMethod("airtm")}>
+              <button
+                onClick={() => {
+                  setPaymentPlan("crypto_10");
+                  setPaymentMethod("airtm");
+                }}
+              >
                 Pagar por Airtm
               </button>
             </article>
@@ -1723,7 +1903,12 @@ export default function Home() {
                 <br />
                 Reinicio mensual
               </p>
-              <button onClick={() => setPaymentMethod("airtm")}>
+              <button
+                onClick={() => {
+                  setPaymentPlan("crypto_20");
+                  setPaymentMethod("airtm");
+                }}
+              >
                 Pagar por Airtm
               </button>
             </article>
@@ -1752,9 +1937,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     setPaymentMethod(null);
-                    setNotice(
-                      "Solicitud registrada. Adjunta tu comprobante cuando habilitemos el acceso de usuarios.",
-                    );
+                    setView("payment");
                   }}
                 >
                   Ya pagué · solicitar verificación
@@ -1786,9 +1969,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     setPaymentMethod(null);
-                    setNotice(
-                      "Solicitud registrada. Adjunta tu comprobante cuando habilitemos el acceso de usuarios.",
-                    );
+                    setView("payment");
                   }}
                 >
                   Ya pagué · solicitar verificación
@@ -1948,8 +2129,8 @@ export default function Home() {
               <b>nelalemento@gmail.com</b>
             </p>
             <span>
-              Cuenta verificada con Supabase Auth y rol interno de administrador.
-              La contraseña nunca se guarda en esta página.
+              Cuenta verificada con Supabase Auth y rol interno de
+              administrador. La contraseña nunca se guarda en esta página.
             </span>
           </article>
           <article className="panel real-metrics">
