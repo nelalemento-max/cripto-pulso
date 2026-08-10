@@ -84,6 +84,36 @@ const nationalReferences: Record<string, { price: number; unit: string; source: 
   Arroz: { price: 13.67, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
   Azúcar: { price: 6.17, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
 };
+const departmentShapes = [
+  { name: "Pando", path: "M90 42 L258 22 L310 82 L280 150 L120 162 L62 108 Z", x: 177, y: 101 },
+  { name: "Beni", path: "M258 22 L468 70 L558 190 L510 300 L330 280 L280 150 L310 82 Z", x: 406, y: 171 },
+  { name: "La Paz", path: "M62 108 L120 162 L280 150 L250 320 L150 390 L70 320 L30 220 Z", x: 145, y: 256 },
+  { name: "Cochabamba", path: "M280 150 L330 280 L410 340 L325 420 L235 390 L250 320 Z", x: 309, y: 329 },
+  { name: "Santa Cruz", path: "M330 280 L510 300 L570 420 L520 560 L400 500 L325 420 L410 340 Z", x: 473, y: 408 },
+  { name: "Oruro", path: "M70 320 L150 390 L235 390 L220 500 L115 505 L50 430 Z", x: 142, y: 430 },
+  { name: "Potosí", path: "M115 505 L220 500 L325 420 L400 500 L335 590 L250 670 L125 620 L80 550 Z", x: 230, y: 555 },
+  { name: "Chuquisaca", path: "M325 420 L400 500 L520 560 L420 610 L335 590 Z", x: 412, y: 535 },
+  { name: "Tarija", path: "M335 590 L420 610 L400 680 L250 670 Z", x: 354, y: 640 },
+];
+
+function BoliviaDepartmentMap({ selected, reports, onSelect }: { selected: string; reports: BasketPriceReport[]; onSelect: (department: string) => void }) {
+  return (
+    <svg className="bolivia-department-map" viewBox="0 0 600 710" role="group" aria-label="Mapa interactivo de los departamentos de Bolivia">
+      <defs><filter id="mapGlow"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      {departmentShapes.map((department) => {
+        const count = reports.filter((report) => report.department === department.name).length;
+        const active = selected === department.name;
+        return (
+          <g key={department.name} className={`department-region ${active ? "active" : ""}`} role="button" tabIndex={0} aria-pressed={active} aria-label={`${department.name}, ${count} reportes verificados`} onClick={() => onSelect(department.name)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelect(department.name); }}>
+            <path d={department.path}/>
+            <text x={department.x} y={department.y} textAnchor="middle">{department.name}</text>
+            <text className="department-count" x={department.x} y={department.y + 17} textAnchor="middle">{count ? `${count} reporte${count === 1 ? "" : "s"}` : "Sin reportes"}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 const dollarHistory = [
   { m: "Ago 25", official: 6.96, p2p: 14.12 },
@@ -2280,12 +2310,11 @@ export default function Home() {
           <div className="basket-layout">
             <article className="bolivia-map-card panel">
               <div className="panel-label">MAPA INTERACTIVO DE BOLIVIA</div>
-              <div className="bolivia-map" role="group" aria-label="Seleccionar departamento">
-                {boliviaDepartments.map((department, index) => (
-                  <button key={department} className={`dept dept-${index + 1} ${selectedDepartment === department ? "active" : ""}`} onClick={() => setSelectedDepartment(department)}><b>{department}</b><small>{basketReports.filter((r) => r.department === department).length} reportes</small></button>
-                ))}
+              <div className="bolivia-map-shell">
+                <BoliviaDepartmentMap selected={selectedDepartment} reports={basketReports} onSelect={setSelectedDepartment}/>
               </div>
-              <p>Selecciona un departamento para consultar sus mercados y precios verificados.</p>
+              <div className="map-selection-summary"><span>Departamento seleccionado</span><b>{selectedDepartment}</b><small>{basketReports.filter((report) => report.department === selectedDepartment).length} precios comunitarios verificados</small></div>
+              <p>Toca directamente un departamento del mapa para consultar sus mercados y precios verificados.</p>
             </article>
             <article className="basket-results panel">
               <div className="panel-label">{selectedDepartment.toUpperCase()}</div>
