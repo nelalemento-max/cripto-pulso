@@ -619,6 +619,11 @@ export default function Home() {
                 : "Mi sesión"
               : "Iniciar sesión"}
           </button>
+          {authUser && (
+            <button className="ghost logout-header" onClick={signOut}>
+              Cerrar sesión
+            </button>
+          )}
           <button className="cta" onClick={() => setView("plans")}>
             Comenzar práctica
           </button>
