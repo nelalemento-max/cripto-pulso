@@ -77,6 +77,10 @@ type BasketPriceReport = {
 };
 
 const basketProducts = ["Carne de res", "Pollo", "Huevos", "Arroz", "Aceite", "Azúcar", "Harina", "Fideo", "Papa", "Tomate", "Cebolla", "Leche"];
+const basketProductUnits: Record<string, string> = {
+  "Carne de res": "kg", Pollo: "kg", Huevos: "docena", Arroz: "kg", Aceite: "litro", Azúcar: "kg",
+  Harina: "kg", Fideo: "kg", Papa: "kg", Tomate: "kg", Cebolla: "kg", Leche: "litro",
+};
 const boliviaDepartments = ["La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", "Tarija", "Oruro", "Potosí", "Beni", "Pando"];
 const nationalReferences: Record<string, { price: number; unit: string; source: string }> = {
   "Carne de res": { price: 108, unit: "kg", source: "OAP · referencia nacional mayo 2026" },
@@ -722,6 +726,8 @@ export default function Home() {
   const [basketReports, setBasketReports] = useState<BasketPriceReport[]>([]);
   const [adminBasketReports, setAdminBasketReports] = useState<BasketPriceReport[]>([]);
   const [basketMessage, setBasketMessage] = useState("");
+  const [basketPeriod, setBasketPeriod] = useState("30");
+  const [basketMarketFilter, setBasketMarketFilter] = useState("");
   const [showAllTrends, setShowAllTrends] = useState(false);
   const [pulseInfo, setPulseInfo] = useState(false);
   const [search, setSearch] = useState("");
@@ -1126,6 +1132,12 @@ export default function Home() {
     }
   }, []);
   useEffect(() => {
+    if (view !== "basket") return;
+    loadBasketReports();
+    const timer = window.setInterval(() => loadBasketReports(), 60000);
+    return () => window.clearInterval(timer);
+  }, [view]);
+  useEffect(() => {
     if (view !== "dollar") return;
     const timer = window.setInterval(
       () => setSelectedDollarPoint((point) => (point + 1) % dollarHistory.length),
@@ -1343,6 +1355,28 @@ export default function Home() {
     setNotice("Moneda añadida a tus prácticas de este dispositivo.");
   };
   const practice = () => addPractice(coin.id);
+  const basketUnit = basketProductUnits[selectedBasketProduct];
+  const basketCutoff = basketPeriod === "all" ? 0 : Date.now() - Number(basketPeriod) * 86400000;
+  const comparableBasketReports = basketReports.filter((report) =>
+    report.product === selectedBasketProduct && report.unit === basketUnit &&
+    (!basketCutoff || new Date(report.purchased_on).getTime() >= basketCutoff) &&
+    (!basketMarketFilter || `${report.market} ${report.city}`.toLowerCase().includes(basketMarketFilter.toLowerCase())),
+  );
+  const selectedBasketReports = comparableBasketReports
+    .filter((report) => report.department === selectedDepartment)
+    .sort((a, b) => new Date(b.purchased_on).getTime() - new Date(a.purchased_on).getTime());
+  const selectedBasketAverage = selectedBasketReports.length
+    ? selectedBasketReports.reduce((sum, report) => sum + Number(report.price), 0) / selectedBasketReports.length : null;
+  const selectedBasketLatest = selectedBasketReports[0];
+  const selectedBasketPrevious = selectedBasketReports[1];
+  const selectedBasketChange = selectedBasketLatest && selectedBasketPrevious
+    ? ((Number(selectedBasketLatest.price) - Number(selectedBasketPrevious.price)) / Number(selectedBasketPrevious.price)) * 100 : null;
+  const basketDepartmentStats = boliviaDepartments.map((department) => {
+    const rows = comparableBasketReports.filter((report) => report.department === department);
+    return { department, count: rows.length, average: rows.length ? rows.reduce((sum, report) => sum + Number(report.price), 0) / rows.length : null };
+  }).filter((row) => row.average !== null).sort((a, b) => Number(a.average) - Number(b.average));
+  const basketMin = selectedBasketReports.length ? Math.min(...selectedBasketReports.map((report) => Number(report.price))) : null;
+  const basketMax = selectedBasketReports.length ? Math.max(...selectedBasketReports.map((report) => Number(report.price))) : null;
   return (
     <main>
       <header className="topbar">
@@ -2313,6 +2347,13 @@ export default function Home() {
             <div><span className="live-dot">● PRECIOS PARA DECISIONES FAMILIARES</span><h1>¿Dónde cuesta menos <i>tu canasta?</i></h1><p>Explora Bolivia, compara referencias y ayuda a otras familias reportando precios reales.</p></div>
             <div className="basket-total"><small>PRODUCTOS OBSERVADOS</small><b>{basketProducts.length}</b><span>Referencias oficiales y comunitarias verificadas</span></div>
           </header>
+          {basketReports.length > 0 && <div className="basket-live-ticker" aria-label="Últimos precios verificados"><div>{[...basketReports, ...basketReports].slice(0, 20).map((report, index) => <span key={`${report.id}-${index}`}><b>{report.product}</b> · {report.department} <i>Bs {Number(report.price).toFixed(2)}/{report.unit}</i></span>)}</div></div>}
+          <article className="basket-controls panel">
+            <label>PERIODO<select value={basketPeriod} onChange={(event) => setBasketPeriod(event.target.value)}><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="all">Todo el histórico</option></select></label>
+            <label>BUSCAR MERCADO<input value={basketMarketFilter} onChange={(event) => setBasketMarketFilter(event.target.value)} placeholder="Ej. Rodríguez, Hipermaxi…" /></label>
+            <div><small>UNIDAD COMPARABLE</small><b>{basketUnit}</b></div>
+            <div><small>ACTUALIZACIÓN</small><b>Automática · 60 s</b></div>
+          </article>
           <div className="basket-layout">
             <article className="bolivia-map-card panel">
               <div className="panel-label">MAPA INTERACTIVO DE BOLIVIA</div>
@@ -2330,16 +2371,26 @@ export default function Home() {
                 <small>REFERENCIA DISPONIBLE</small>
                 {nationalReferences[selectedBasketProduct] ? <><b>Bs {nationalReferences[selectedBasketProduct].price.toFixed(2)} / {nationalReferences[selectedBasketProduct].unit}</b><span>{nationalReferences[selectedBasketProduct].source}</span></> : <><b>Esperando datos verificados</b><span>No mostramos precios sin fuente o fecha.</span></>}
               </div>
+              <div className="basket-kpis">
+                <div><small>PROMEDIO COMUNITARIO</small><b>{selectedBasketAverage === null ? "—" : `Bs ${selectedBasketAverage.toFixed(2)}`}</b><span>{selectedBasketReports.length} reportes · / {basketUnit}</span></div>
+                <div><small>RANGO OBSERVADO</small><b>{basketMin === null ? "—" : `${basketMin.toFixed(2)}–${basketMax?.toFixed(2)}`}</b><span>mínimo–máximo</span></div>
+                <div className={selectedBasketChange === null ? "" : selectedBasketChange > 0 ? "price-up" : "price-down"}><small>ÚLTIMO CAMBIO</small><b>{selectedBasketChange === null ? "—" : `${selectedBasketChange > 0 ? "+" : ""}${selectedBasketChange.toFixed(1)}%`}</b><span>vs. reporte anterior</span></div>
+              </div>
+              {selectedBasketReports.length > 0 && <div className="basket-price-motion" aria-label="Evolución de precios"><div className="motion-grid">{[...selectedBasketReports].reverse().slice(-12).map((report) => { const ceiling = basketMax || Number(report.price); const floor = basketMin || 0; const height = ceiling === floor ? 62 : 24 + ((Number(report.price) - floor) / (ceiling - floor)) * 70; return <button key={report.id} title={`${report.market}: Bs ${Number(report.price).toFixed(2)}`} style={{ height: `${height}%` }}><span>{Number(report.price).toFixed(2)}</span></button>; })}</div><small>Histórico filtrado · cada barra es un precio aprobado</small></div>}
               <div className="market-price-list">
-                {basketReports.filter((r) => r.department === selectedDepartment && r.product === selectedBasketProduct).length ? basketReports.filter((r) => r.department === selectedDepartment && r.product === selectedBasketProduct).map((report) => <div key={report.id}><span><b>{report.market}</b><small>{report.city} · {new Date(report.purchased_on).toLocaleDateString("es-BO")}</small></span><strong>Bs {Number(report.price).toFixed(2)} / {report.unit}</strong></div>) : <p>Aún no existen precios comunitarios verificados para este producto y departamento.</p>}
+                {selectedBasketReports.length ? selectedBasketReports.map((report) => <div key={report.id}><span><b>{report.market}</b><small>{report.city} · {new Date(report.purchased_on).toLocaleDateString("es-BO")}</small></span><strong>Bs {Number(report.price).toFixed(2)} / {report.unit}</strong></div>) : <p>Aún no existen precios comunitarios verificados para estos filtros.</p>}
               </div>
             </article>
           </div>
+          <article className="basket-ranking panel">
+            <div><span className="panel-label">PROMEDIOS POR DEPARTAMENTO</span><h2>{selectedBasketProduct} · Bs/{basketUnit}</h2><p>Calculado únicamente con reportes aprobados del periodo y filtros seleccionados.</p></div>
+            <div className="department-bars">{basketDepartmentStats.length ? basketDepartmentStats.map((row) => <button key={row.department} className={selectedDepartment === row.department ? "active" : ""} onClick={() => setSelectedDepartment(row.department)}><span><b>{row.department}</b><small>{row.count} reportes</small></span><i style={{ width: `${Math.max(12, (Number(row.average) / Math.max(...basketDepartmentStats.map((item) => Number(item.average)))) * 100)}%` }}></i><strong>Bs {Number(row.average).toFixed(2)}</strong></button>) : <div className="basket-empty"><b>Aún no hay suficientes datos comparables.</b><span>Los aportes pagados y aprobados irán construyendo este promedio por departamento.</span></div>}</div>
+          </article>
           <article className="basket-contribution panel">
             <div><span className="panel-label">COMUNIDAD PAGADA</span><h2>¿Lo encontraste a menor precio?</h2><p>Comparte dónde compraste. Tu aporte se publicará únicamente después de una revisión.</p></div>
             {hasPaidAccess ? <form onSubmit={submitBasketPrice}>
-              <select name="product" required defaultValue={selectedBasketProduct}>{basketProducts.map((p) => <option key={p}>{p}</option>)}</select>
-              <select name="department" required defaultValue={selectedDepartment}>{boliviaDepartments.map((d) => <option key={d}>{d}</option>)}</select>
+              <select key={`product-${selectedBasketProduct}`} name="product" required defaultValue={selectedBasketProduct}>{basketProducts.map((p) => <option key={p}>{p}</option>)}</select>
+              <select key={`department-${selectedDepartment}`} name="department" required defaultValue={selectedDepartment}>{boliviaDepartments.map((d) => <option key={d}>{d}</option>)}</select>
               <input name="city" required placeholder="Ciudad" />
               <input name="market" required placeholder="Mercado, tienda o supermercado" />
               <input name="price" required type="number" min="0.01" step="0.01" placeholder="Precio pagado (Bs)" />
