@@ -822,6 +822,28 @@ export default function Home() {
     );
     if (response.ok) loadPaymentRequests();
   };
+  const deletePaymentUser = async (request: PaymentRequest) => {
+    const confirmed = window.confirm(
+      `¿Eliminar definitivamente a ${request.full_name}?\n\nSe borrarán la solicitud pendiente, el comprobante y la cuenta asociada si ya existe. Esta acción no se puede deshacer.`,
+    );
+    if (!confirmed) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    setNotice("Eliminando usuario y solicitud…");
+    const response = await fetch("/api/admin/payment-requests", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ id: request.id }),
+    });
+    const body = await response.json();
+    setNotice(response.ok ? body.message : body.error ?? "No se pudo eliminar.");
+    if (response.ok) await loadPaymentRequests();
+  };
   const submitPaymentRequest = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -2473,6 +2495,13 @@ export default function Home() {
                       >
                         Rechazar
                       </button>
+                      <button
+                        className="danger-action"
+                        disabled={r.status !== "pending"}
+                        onClick={() => deletePaymentUser(r)}
+                      >
+                        Eliminar usuario
+                      </button>
                     </span>
                   </div>
                 ))
@@ -3078,15 +3107,25 @@ export default function Home() {
       {view === "admin" && isAdmin && (
         <section className="page admin-extra">
           <article className="panel admin-identity">
-            <div className="panel-label">SEGURIDAD Y ACCESO</div>
-            <h3>Administrador principal</h3>
-            <p>
-              <b>nelalemento@gmail.com</b>
-            </p>
-            <span>
-              Cuenta verificada con Supabase Auth y rol interno de
-              administrador. La contraseña nunca se guarda en esta página.
-            </span>
+            <div className="admin-security-head">
+              <div>
+                <div className="panel-label">SEGURIDAD Y ACCESO</div>
+                <h2>Reporte de la cuenta administradora</h2>
+                <p>Información de acceso y protección del panel principal.</p>
+              </div>
+              <strong className="security-status">● ACCESO ACTIVO</strong>
+            </div>
+            <div className="admin-security-grid">
+              <div><small>ADMINISTRADOR PRINCIPAL</small><b>Nelson Mendoza Torres</b><span>Responsable de revisar pagos y habilitar planes.</span></div>
+              <div><small>CORREO DE ACCESO</small><b className="security-email">nelalemento@gmail.com</b><span>Cuenta verificada mediante Supabase Auth.</span></div>
+              <div><small>NIVEL DE PERMISO</small><b>Administrador</b><span>Ventas, accesos, visitas y moderación.</span></div>
+              <div><small>ESTADO DE LA CUENTA</small><b className="up">Activa y autorizada</b><span>El panel valida el rol antes de cada operación protegida.</span></div>
+            </div>
+            <div className="security-guidance">
+              <b>Protección de la contraseña</b>
+              <p>La contraseña nunca se muestra ni se guarda en esta página. Utiliza una contraseña exclusiva para CriptoPulso, no la compartas por WhatsApp y cierra la sesión cuando uses otro equipo.</p>
+              <button type="button" onClick={recoverPassword}>Cambiar o recuperar contraseña</button>
+            </div>
           </article>
           <article className="panel real-metrics">
             <div className="panel-label">MÉTRICAS REALES</div>
