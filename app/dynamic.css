@@ -264,6 +264,25 @@
 .p2p-dot {
   fill: var(--green);
 }
+.official-dot {
+  fill: var(--gold);
+}
+.axis-label {
+  fill: #789087;
+  font-size: 9px;
+  text-anchor: end;
+}
+.point-value {
+  font-size: 7px;
+  text-anchor: middle;
+  font-weight: 800;
+}
+.p2p-value {
+  fill: var(--green);
+}
+.official-value {
+  fill: var(--gold);
+}
 .month-label {
   fill: #789087;
   font-size: 7px;
@@ -887,6 +906,18 @@
   }
 }
 @media (max-width: 600px) {
+  .dollar-history {
+    overflow-x: auto;
+  }
+  .dollar-history svg {
+    min-width: 760px;
+  }
+  .axis-label {
+    font-size: 10px;
+  }
+  .point-value {
+    font-size: 8px;
+  }
   .signal-guide ol {
     grid-template-columns: 1fr;
   }
