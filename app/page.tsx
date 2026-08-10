@@ -295,6 +295,7 @@ const fmt = (n: number) =>
   n >= 1000
     ? `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
     : `$${n.toLocaleString("en-US", { maximumFractionDigits: n < 10 ? 4 : 2 })}`;
+const dollarY = (value: number) => 285 - ((value - 6) / 8) * 240;
 const compact = (n: number) =>
   n >= 1e12
     ? `$${(n / 1e12).toFixed(2)}T`
@@ -1712,42 +1713,64 @@ export default function Home() {
             </div>
             <svg
               viewBox="0 0 920 330"
-              preserveAspectRatio="none"
+              preserveAspectRatio="xMidYMid meet"
               aria-label="Gráfico histórico demostrativo del dólar en Bolivia"
             >
-              {[0, 1, 2, 3, 4].map((i) => (
-                <line
-                  key={i}
-                  x1="45"
-                  x2="900"
-                  y1={35 + i * 62}
-                  y2={35 + i * 62}
-                  className="grid-line"
-                />
+              {[14, 12, 10, 8, 6].map((value) => (
+                <g key={value}>
+                  <line
+                    x1="55"
+                    x2="905"
+                    y1={dollarY(value)}
+                    y2={dollarY(value)}
+                    className="grid-line"
+                  />
+                  <text x="46" y={dollarY(value) + 4} className="axis-label">
+                    Bs {value}
+                  </text>
+                </g>
               ))}
               <polyline
                 points={dollarHistory
-                  .map(
-                    (d, i) => `${55 + i * 76},${300 - (d.official - 6) * 31}`,
-                  )
+                  .map((d, i) => `${65 + i * 75},${dollarY(d.official)}`)
                   .join(" ")}
                 className="history-official"
               />
               <polyline
                 points={dollarHistory
-                  .map((d, i) => `${55 + i * 76},${300 - (d.p2p - 6) * 31}`)
+                  .map((d, i) => `${65 + i * 75},${dollarY(d.p2p)}`)
                   .join(" ")}
                 className="history-p2p"
               />
               {dollarHistory.map((d, i) => (
                 <g key={d.m}>
                   <circle
-                    cx={55 + i * 76}
-                    cy={300 - (d.p2p - 6) * 31}
+                    cx={65 + i * 75}
+                    cy={dollarY(d.official)}
+                    r="3.5"
+                    className="official-dot"
+                  />
+                  <circle
+                    cx={65 + i * 75}
+                    cy={dollarY(d.p2p)}
                     r="4"
                     className="p2p-dot"
                   />
-                  <text x={55 + i * 76} y="322" className="month-label">
+                  <text
+                    x={65 + i * 75}
+                    y={dollarY(d.p2p) - 9}
+                    className="point-value p2p-value"
+                  >
+                    {d.p2p.toFixed(2)}
+                  </text>
+                  <text
+                    x={65 + i * 75}
+                    y={dollarY(d.official) + 14}
+                    className="point-value official-value"
+                  >
+                    {d.official.toFixed(2)}
+                  </text>
+                  <text x={65 + i * 75} y="318" className="month-label">
                     {d.m}
                   </text>
                 </g>
