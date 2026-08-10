@@ -20,10 +20,14 @@ export async function POST(request: Request) {
     const reference = String(form.get("reference") ?? "")
       .trim()
       .slice(0, 120);
+    const paidAmount = String(form.get("paidAmount") ?? "")
+      .trim()
+      .slice(0, 40);
     const receipt = form.get("receipt");
     if (
       fullName.length < 2 ||
       country.length < 2 ||
+      paidAmount.length < 1 ||
       !/^\S+@\S+\.\S+$/.test(email) ||
       !plans[plan]
     ) {
@@ -72,6 +76,7 @@ export async function POST(request: Request) {
       plan,
       payment_method: config.method,
       amount_label: config.amount,
+      paid_amount: paidAmount,
       payment_reference: reference || null,
       receipt_path: path,
     });
