@@ -888,6 +888,23 @@
   color: white;
   margin-top: 7px;
 }
+.section-metrics { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.section-metrics > b { color: white; font-size: 10px; }
+.section-metrics span { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; text-transform: capitalize; }
+.section-metrics strong { color: var(--green); }
+.visitor-interest-list { padding: 22px; }
+.visitor-interest-list > p, .visitor-interest-list > span { color: var(--muted); font-size: 10px; }
+.visitor-interest-list > div:not(.panel-label) { border-top: 1px solid var(--line); padding: 13px 0; }
+.visitor-interest-list > div p { margin: 0 0 7px; color: white; font-size: 12px; line-height: 1.55; }
+.visitor-interest-list > div small { color: var(--muted); font-size: 8px; }
+.feedback-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 18px; background: #020806cc; backdrop-filter: blur(8px); }
+.feedback-card { width: min(520px, 100%); padding: 28px; position: relative; box-shadow: 0 24px 90px #000; }
+.feedback-card h2 { margin: 10px 35px 18px 0; font-size: clamp(25px, 5vw, 38px); line-height: 1.05; }
+.feedback-card textarea { width: 100%; min-height: 135px; resize: vertical; background: #06100d; color: white; border: 1px solid #29453b; padding: 14px; font: inherit; line-height: 1.5; }
+.feedback-card > p { color: var(--green); font-size: 10px; }
+.feedback-close { position: absolute; top: 12px; right: 12px; border: 0; background: none; color: var(--muted); font-size: 26px; }
+.feedback-send { width: 100%; border: 0; background: var(--green); color: #04100d; padding: 13px; margin-top: 12px; font-weight: 900; }
+.feedback-card > small { display: block; margin-top: 10px; color: var(--muted); font-size: 8px; text-align: center; }
 .moderation > div {
   display: grid;
   grid-template-columns: 140px 1fr auto auto;

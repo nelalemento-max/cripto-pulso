@@ -62,6 +62,14 @@ type VisitMetrics = {
   pageViews: number;
   topPage: string;
   devices: Record<string, number>;
+  pages?: Record<string, number>;
+};
+type VisitorFeedback = {
+  id: string;
+  answer: string;
+  section: string;
+  device: string;
+  created_at: string;
 };
 
 const dollarHistory = [
@@ -651,7 +659,14 @@ export default function Home() {
     pageViews: 0,
     topPage: "/",
     devices: {},
+    pages: {},
   });
+  const [feedbackResponses, setFeedbackResponses] = useState<VisitorFeedback[]>(
+    [],
+  );
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("");
   const [showAllTrends, setShowAllTrends] = useState(false);
   const [pulseInfo, setPulseInfo] = useState(false);
   const [search, setSearch] = useState("");
@@ -935,9 +950,29 @@ export default function Home() {
     const response = await fetch("/api/visits", { cache: "no-store" });
     if (response.ok) setVisitMetrics(await response.json());
   };
-  useEffect(() => {
-    loadComments();
-    loadMetrics();
+  const loadFeedback = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/feedback", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    if (response.ok) {
+      const body = await response.json();
+      setFeedbackResponses(body.responses ?? []);
+    }
+    const journeyResponse = await fetch("/api/admin/visit-metrics", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    if (journeyResponse.ok) {
+      const body = await journeyResponse.json();
+      setVisitMetrics((metrics) => ({ ...metrics, pages: body.pages ?? {} }));
+    }
+  };
+  const trackingIdentity = () => {
     const visitorId =
       localStorage.getItem("criptopulso-visitor") ?? crypto.randomUUID();
     localStorage.setItem("criptopulso-visitor", visitorId);
@@ -948,23 +983,67 @@ export default function Home() {
     }
     const width = window.innerWidth;
     const device = width < 600 ? "mobile" : width < 1000 ? "tablet" : "desktop";
+    return { visitorId, sessionId, device };
+  };
+  const submitFeedback = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (feedbackText.trim().length < 3) {
+      setFeedbackStatus("Escribe un poco más para poder ayudarte.");
+      return;
+    }
+    setFeedbackStatus("Enviando…");
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...trackingIdentity(),
+        answer: feedbackText,
+        section: view,
+      }),
+    });
+    if (!response.ok) {
+      setFeedbackStatus("No pudimos guardar tu respuesta. Intenta nuevamente.");
+      return;
+    }
+    localStorage.setItem("criptopulso-feedback-answered", "yes");
+    setFeedbackStatus("¡Gracias! Usaremos tu respuesta para mejorar CriptoPulso.");
+    window.setTimeout(() => setShowFeedback(false), 1800);
+  };
+  useEffect(() => {
+    loadComments();
+    loadMetrics();
+    trackingIdentity();
+  }, []);
+  useEffect(() => {
+    const { visitorId, sessionId, device } = trackingIdentity();
     fetch("/api/visits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         visitorId,
         sessionId,
-        path: location.pathname,
+        path: `/${view}`,
         device,
       }),
     })
       .then(() => loadMetrics())
       .catch(() => {});
-  }, []);
+  }, [view]);
+  useEffect(() => {
+    if (
+      authUser ||
+      localStorage.getItem("criptopulso-feedback-answered") === "yes" ||
+      sessionStorage.getItem("criptopulso-feedback-seen") === "yes"
+    )
+      return;
+    const timer = window.setTimeout(() => setShowFeedback(true), 12000);
+    return () => window.clearTimeout(timer);
+  }, [authUser]);
   useEffect(() => {
     if (isAdmin) {
       loadComments(true);
       loadMetrics();
+      loadFeedback();
     }
   }, [isAdmin]);
   useEffect(() => {
@@ -2978,6 +3057,37 @@ export default function Home() {
                 Página más vista<b>{visitMetrics.topPage}</b>
               </span>
             </div>
+            <div className="section-metrics">
+              <b>Secciones consultadas durante los últimos 7 días</b>
+              {Object.entries(visitMetrics.pages ?? {})
+                .sort((a, b) => b[1] - a[1])
+                .map(([path, total]) => (
+                  <span key={path}>
+                    {path.replace("/", "") || "inicio"}
+                    <strong>{total} visitas</strong>
+                  </span>
+                ))}
+            </div>
+          </article>
+          <article className="panel visitor-interest-list">
+            <div className="panel-label">VOZ DEL VISITANTE</div>
+            <h3>¿Qué quieren encontrar en CriptoPulso?</h3>
+            <p>
+              Respuestas voluntarias recogidas una sola vez por dispositivo.
+            </p>
+            {feedbackResponses.length ? (
+              feedbackResponses.map((response) => (
+                <div key={response.id}>
+                  <p>“{response.answer}”</p>
+                  <small>
+                    Sección: {response.section} · {response.device} ·{" "}
+                    {new Date(response.created_at).toLocaleString("es-BO")}
+                  </small>
+                </div>
+              ))
+            ) : (
+              <span>Aún no existen respuestas de visitantes.</span>
+            )}
           </article>
           <article className="panel moderation">
             <div className="panel-label">MODERACIÓN DE COMENTARIOS</div>
@@ -3021,6 +3131,39 @@ export default function Home() {
             ))}
           </article>
         </section>
+      )}
+      {showFeedback && !authUser && (
+        <div className="feedback-overlay" role="dialog" aria-modal="true">
+          <form className="feedback-card panel" onSubmit={submitFeedback}>
+            <button
+              type="button"
+              className="feedback-close"
+              aria-label="Cerrar pregunta"
+              onClick={() => {
+                sessionStorage.setItem("criptopulso-feedback-seen", "yes");
+                setShowFeedback(false);
+              }}
+            >
+              ×
+            </button>
+            <div className="panel-label">AYÚDANOS A MEJORAR</div>
+            <h2>¿Qué te gustaría saber en esta página?</h2>
+            <textarea
+              autoFocus
+              required
+              minLength={3}
+              maxLength={500}
+              value={feedbackText}
+              onChange={(event) => setFeedbackText(event.target.value)}
+              placeholder="Por ejemplo: cómo empezar, qué moneda estudiar o cómo controlar el riesgo…"
+            />
+            {feedbackStatus && <p>{feedbackStatus}</p>}
+            <button className="feedback-send">Enviar respuesta</button>
+            <small>
+              No necesitas escribir tu nombre, teléfono ni información privada.
+            </small>
+          </form>
+        </div>
       )}
       <footer>
         <div className="brand">
