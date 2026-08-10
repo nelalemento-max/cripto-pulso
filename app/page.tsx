@@ -71,6 +71,19 @@ type VisitorFeedback = {
   device: string;
   created_at: string;
 };
+type BasketPriceReport = {
+  id: string; product: string; price: number; unit: string; department: string;
+  city: string; market: string; purchased_on: string; status?: string; created_at?: string;
+};
+
+const basketProducts = ["Carne de res", "Pollo", "Huevos", "Arroz", "Aceite", "Azúcar", "Harina", "Fideo", "Papa", "Tomate", "Cebolla", "Leche"];
+const boliviaDepartments = ["La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", "Tarija", "Oruro", "Potosí", "Beni", "Pando"];
+const nationalReferences: Record<string, { price: number; unit: string; source: string }> = {
+  "Carne de res": { price: 108, unit: "kg", source: "OAP · referencia nacional mayo 2026" },
+  Pollo: { price: 35.5, unit: "kg", source: "OAP · referencia nacional mayo 2026" },
+  Arroz: { price: 13.67, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
+  Azúcar: { price: 6.17, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
+};
 
 const dollarHistory = [
   { m: "Ago 25", official: 6.96, p2p: 14.12 },
@@ -620,6 +633,7 @@ export default function Home() {
     | "market"
     | "simulator"
     | "dollar"
+    | "basket"
     | "community"
     | "academy"
     | "plans"
@@ -667,6 +681,11 @@ export default function Home() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("La Paz");
+  const [selectedBasketProduct, setSelectedBasketProduct] = useState("Carne de res");
+  const [basketReports, setBasketReports] = useState<BasketPriceReport[]>([]);
+  const [adminBasketReports, setAdminBasketReports] = useState<BasketPriceReport[]>([]);
+  const [basketMessage, setBasketMessage] = useState("");
   const [showAllTrends, setShowAllTrends] = useState(false);
   const [pulseInfo, setPulseInfo] = useState(false);
   const [search, setSearch] = useState("");
@@ -994,6 +1013,35 @@ export default function Home() {
       setVisitMetrics((metrics) => ({ ...metrics, pages: body.pages ?? {} }));
     }
   };
+  const loadBasketReports = async (adminView = false) => {
+    const headers: Record<string, string> = {};
+    if (adminView) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    const response = await fetch(`/api/basket-prices${adminView ? "?admin=1" : ""}`, { headers, cache: "no-store" });
+    if (!response.ok) return;
+    const body = await response.json();
+    adminView ? setAdminBasketReports(body.reports ?? []) : setBasketReports(body.reports ?? []);
+  };
+  const submitBasketPrice = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return setBasketMessage("Inicia sesión con tu cuenta pagada.");
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    setBasketMessage("Enviando para revisión…");
+    const response = await fetch("/api/basket-prices", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(data) });
+    const body = await response.json();
+    setBasketMessage(response.ok ? "Gracias. El administrador revisará tu precio antes de publicarlo." : body.error ?? "No se pudo enviar.");
+    if (response.ok) event.currentTarget.reset();
+  };
+  const reviewBasketPrice = async (id: string, action: "approve" | "reject") => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const response = await fetch("/api/basket-prices", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ id, action }) });
+    if (response.ok) { await loadBasketReports(true); await loadBasketReports(false); }
+  };
   const trackingIdentity = () => {
     const visitorId =
       localStorage.getItem("criptopulso-visitor") ?? crypto.randomUUID();
@@ -1035,6 +1083,7 @@ export default function Home() {
     loadComments();
     loadMetrics();
     trackingIdentity();
+    loadBasketReports();
     if (!localStorage.getItem("criptopulso-bolivia-opened")) {
       localStorage.setItem("criptopulso-bolivia-opened", "yes");
       setView("dollar");
@@ -1078,6 +1127,7 @@ export default function Home() {
       loadComments(true);
       loadMetrics();
       loadFeedback();
+      loadBasketReports(true);
     }
   }, [isAdmin]);
   useEffect(() => {
@@ -1268,6 +1318,7 @@ export default function Home() {
             ["market", "Mercado"],
             ["simulator", "Simulador"],
             ["dollar", "Datos Bolivia"],
+            ["basket", "Canasta familiar"],
             ["community", "Comunidad"],
             ["academy", "Academia"],
             ["plans", "Planes"],
@@ -2218,6 +2269,52 @@ export default function Home() {
               </button>
             </article>
           </div>
+        </section>
+      )}
+      {view === "basket" && (
+        <section className="page basket-page">
+          <header className="basket-hero">
+            <div><span className="live-dot">● PRECIOS PARA DECISIONES FAMILIARES</span><h1>¿Dónde cuesta menos <i>tu canasta?</i></h1><p>Explora Bolivia, compara referencias y ayuda a otras familias reportando precios reales.</p></div>
+            <div className="basket-total"><small>PRODUCTOS OBSERVADOS</small><b>{basketProducts.length}</b><span>Referencias oficiales y comunitarias verificadas</span></div>
+          </header>
+          <div className="basket-layout">
+            <article className="bolivia-map-card panel">
+              <div className="panel-label">MAPA INTERACTIVO DE BOLIVIA</div>
+              <div className="bolivia-map" role="group" aria-label="Seleccionar departamento">
+                {boliviaDepartments.map((department, index) => (
+                  <button key={department} className={`dept dept-${index + 1} ${selectedDepartment === department ? "active" : ""}`} onClick={() => setSelectedDepartment(department)}><b>{department}</b><small>{basketReports.filter((r) => r.department === department).length} reportes</small></button>
+                ))}
+              </div>
+              <p>Selecciona un departamento para consultar sus mercados y precios verificados.</p>
+            </article>
+            <article className="basket-results panel">
+              <div className="panel-label">{selectedDepartment.toUpperCase()}</div>
+              <h2>Comparador por producto</h2>
+              <div className="basket-product-tabs">{basketProducts.map((product) => <button key={product} className={selectedBasketProduct === product ? "active" : ""} onClick={() => setSelectedBasketProduct(product)}>{product}</button>)}</div>
+              <div className="basket-reference">
+                <small>REFERENCIA DISPONIBLE</small>
+                {nationalReferences[selectedBasketProduct] ? <><b>Bs {nationalReferences[selectedBasketProduct].price.toFixed(2)} / {nationalReferences[selectedBasketProduct].unit}</b><span>{nationalReferences[selectedBasketProduct].source}</span></> : <><b>Esperando datos verificados</b><span>No mostramos precios sin fuente o fecha.</span></>}
+              </div>
+              <div className="market-price-list">
+                {basketReports.filter((r) => r.department === selectedDepartment && r.product === selectedBasketProduct).length ? basketReports.filter((r) => r.department === selectedDepartment && r.product === selectedBasketProduct).map((report) => <div key={report.id}><span><b>{report.market}</b><small>{report.city} · {new Date(report.purchased_on).toLocaleDateString("es-BO")}</small></span><strong>Bs {Number(report.price).toFixed(2)} / {report.unit}</strong></div>) : <p>Aún no existen precios comunitarios verificados para este producto y departamento.</p>}
+              </div>
+            </article>
+          </div>
+          <article className="basket-contribution panel">
+            <div><span className="panel-label">COMUNIDAD PAGADA</span><h2>¿Lo encontraste a menor precio?</h2><p>Comparte dónde compraste. Tu aporte se publicará únicamente después de una revisión.</p></div>
+            {hasPaidAccess ? <form onSubmit={submitBasketPrice}>
+              <select name="product" required defaultValue={selectedBasketProduct}>{basketProducts.map((p) => <option key={p}>{p}</option>)}</select>
+              <select name="department" required defaultValue={selectedDepartment}>{boliviaDepartments.map((d) => <option key={d}>{d}</option>)}</select>
+              <input name="city" required placeholder="Ciudad" />
+              <input name="market" required placeholder="Mercado, tienda o supermercado" />
+              <input name="price" required type="number" min="0.01" step="0.01" placeholder="Precio pagado (Bs)" />
+              <select name="unit" required><option value="kg">Kilogramo</option><option value="litro">Litro</option><option value="docena">Docena</option><option value="arroba">Arroba</option><option value="quintal">Quintal</option><option value="unidad">Unidad</option></select>
+              <input name="purchasedOn" required type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              <button>Enviar precio para revisión</button>
+            </form> : <button className="practice" onClick={() => setView(authUser ? "plans" : "login")}>Accede con un plan para aportar precios</button>}
+            {basketMessage && <p className="basket-message">{basketMessage}</p>}
+          </article>
+          <p className="basket-disclaimer">Los precios son referencias fechadas y pueden cambiar entre mercados, marcas, calidades y horarios. El IPC del INE es el indicador oficial de inflación; los aportes comunitarios no lo sustituyen.</p>
         </section>
       )}
       {view === "community" && (
@@ -3220,6 +3317,10 @@ export default function Home() {
                 </button>
               </div>
             ))}
+          </article>
+          <article className="panel basket-moderation">
+            <div className="panel-label">PRECIOS DE LA COMUNIDAD</div><h3>Reportes pendientes de canasta familiar</h3>
+            {adminBasketReports.filter((r) => r.status === "pending").length ? adminBasketReports.filter((r) => r.status === "pending").map((report) => <div key={report.id}><span><b>{report.product} · Bs {Number(report.price).toFixed(2)}/{report.unit}</b><small>{report.market}, {report.city} · {report.department} · {new Date(report.purchased_on).toLocaleDateString("es-BO")}</small></span><button onClick={() => reviewBasketPrice(report.id, "approve")}>Aprobar</button><button className="danger-action" onClick={() => reviewBasketPrice(report.id, "reject")}>Rechazar</button></div>) : <p>No existen precios pendientes de revisión.</p>}
           </article>
         </section>
       )}
