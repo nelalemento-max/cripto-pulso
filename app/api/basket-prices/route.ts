@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   }
   const { data, error } = await admin.from("basket_price_reports")
     .select("id,product,price,unit,department,city,market,purchased_on,created_at")
-    .eq("status", "approved").order("purchased_on", { ascending: false }).limit(300);
+    .eq("status", "approved").order("purchased_on", { ascending: false }).limit(1000);
   return error ? NextResponse.json({ reports: [] }) : NextResponse.json({ reports: data ?? [] });
 }
 
