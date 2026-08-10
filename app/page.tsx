@@ -73,7 +73,7 @@ type VisitorFeedback = {
 };
 type BasketPriceReport = {
   id: string; product: string; price: number; unit: string; department: string;
-  city: string; market: string; purchased_on: string; status?: string; created_at?: string;
+  city: string; market: string; purchased_on: string; status?: string; created_at?: string; estimated?: boolean;
 };
 
 const basketProducts = ["Carne de res", "Pollo", "Huevos", "Arroz", "Aceite", "Azúcar", "Harina", "Fideo", "Papa", "Tomate", "Cebolla", "Leche"];
@@ -85,9 +85,29 @@ const boliviaDepartments = ["La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", 
 const nationalReferences: Record<string, { price: number; unit: string; source: string }> = {
   "Carne de res": { price: 108, unit: "kg", source: "OAP · referencia nacional mayo 2026" },
   Pollo: { price: 35.5, unit: "kg", source: "OAP · referencia nacional mayo 2026" },
+  Huevos: { price: 28, unit: "docena", source: "Estimación referencial · agosto 2026 · no oficial" },
   Arroz: { price: 13.67, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
+  Aceite: { price: 18, unit: "litro", source: "Estimación referencial · agosto 2026 · no oficial" },
   Azúcar: { price: 6.17, unit: "kg", source: "CRAMA Tarija · marzo 2026" },
+  Harina: { price: 9.5, unit: "kg", source: "Estimación referencial · agosto 2026 · no oficial" },
+  Fideo: { price: 14, unit: "kg", source: "Estimación referencial · agosto 2026 · no oficial" },
+  Papa: { price: 7.5, unit: "kg", source: "Estimación referencial · agosto 2026 · no oficial" },
+  Tomate: { price: 10, unit: "kg", source: "Estimación referencial · agosto 2026 · no oficial" },
+  Cebolla: { price: 8, unit: "kg", source: "Estimación referencial · agosto 2026 · no oficial" },
+  Leche: { price: 8.5, unit: "litro", source: "Estimación referencial · agosto 2026 · no oficial" },
 };
+const departmentPriceFactors: Record<string, number> = { "La Paz": 1.04, "Santa Cruz": .98, Cochabamba: .97, Chuquisaca: 1.01, Tarija: .99, Oruro: 1.05, Potosí: 1.08, Beni: 1.11, Pando: 1.16 };
+const departmentCapitals: Record<string, string> = { "La Paz": "La Paz", "Santa Cruz": "Santa Cruz de la Sierra", Cochabamba: "Cochabamba", Chuquisaca: "Sucre", Tarija: "Tarija", Oruro: "Oruro", Potosí: "Potosí", Beni: "Trinidad", Pando: "Cobija" };
+const estimatedBasketReports: BasketPriceReport[] = boliviaDepartments.flatMap((department, departmentIndex) =>
+  basketProducts.flatMap((product, productIndex) => [
+    { date: "2026-08-02", movement: .985 }, { date: "2026-08-06", movement: 1.012 }, { date: "2026-08-10", movement: 1 },
+  ].map((point, pointIndex) => ({
+    id: `estimate-${departmentIndex}-${productIndex}-${pointIndex}`, product,
+    price: Number((nationalReferences[product].price * departmentPriceFactors[department] * point.movement).toFixed(2)),
+    unit: basketProductUnits[product], department, city: departmentCapitals[department], market: "Referencia estimada departamental",
+    purchased_on: point.date, estimated: true,
+  }))),
+);
 const svgDepartmentOrder = ["Tarija", "Potosí", "Chuquisaca", "Oruro", "Cochabamba", "Santa Cruz", "La Paz", "Beni", "Pando"];
 
 function BoliviaDepartmentMap({ selected, reports, onSelect }: { selected: string; reports: BasketPriceReport[]; onSelect: (department: string) => void }) {
@@ -1355,9 +1375,10 @@ export default function Home() {
     setNotice("Moneda añadida a tus prácticas de este dispositivo.");
   };
   const practice = () => addPractice(coin.id);
+  const displayBasketReports = [...basketReports, ...estimatedBasketReports];
   const basketUnit = basketProductUnits[selectedBasketProduct];
   const basketCutoff = basketPeriod === "all" ? 0 : Date.now() - Number(basketPeriod) * 86400000;
-  const comparableBasketReports = basketReports.filter((report) =>
+  const comparableBasketReports = displayBasketReports.filter((report) =>
     report.product === selectedBasketProduct && report.unit === basketUnit &&
     (!basketCutoff || new Date(report.purchased_on).getTime() >= basketCutoff) &&
     (!basketMarketFilter || `${report.market} ${report.city}`.toLowerCase().includes(basketMarketFilter.toLowerCase())),
@@ -2347,7 +2368,7 @@ export default function Home() {
             <div><span className="live-dot">● PRECIOS PARA DECISIONES FAMILIARES</span><h1>¿Dónde cuesta menos <i>tu canasta?</i></h1><p>Explora Bolivia, compara referencias y ayuda a otras familias reportando precios reales.</p></div>
             <div className="basket-total"><small>PRODUCTOS OBSERVADOS</small><b>{basketProducts.length}</b><span>Referencias oficiales y comunitarias verificadas</span></div>
           </header>
-          {basketReports.length > 0 && <div className="basket-live-ticker" aria-label="Últimos precios verificados"><div>{[...basketReports, ...basketReports].slice(0, 20).map((report, index) => <span key={`${report.id}-${index}`}><b>{report.product}</b> · {report.department} <i>Bs {Number(report.price).toFixed(2)}/{report.unit}</i></span>)}</div></div>}
+          <div className="basket-live-ticker" aria-label="Últimos precios referenciales"><div>{[...displayBasketReports, ...displayBasketReports].slice(0, 20).map((report, index) => <span key={`${report.id}-${index}`}><b>{report.product}</b> · {report.department} <i>Bs {Number(report.price).toFixed(2)}/{report.unit}</i></span>)}</div></div>
           <article className="basket-controls panel">
             <label>PERIODO<select value={basketPeriod} onChange={(event) => setBasketPeriod(event.target.value)}><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="all">Todo el histórico</option></select></label>
             <label>BUSCAR MERCADO<input value={basketMarketFilter} onChange={(event) => setBasketMarketFilter(event.target.value)} placeholder="Ej. Rodríguez, Hipermaxi…" /></label>
@@ -2358,9 +2379,9 @@ export default function Home() {
             <article className="bolivia-map-card panel">
               <div className="panel-label">MAPA INTERACTIVO DE BOLIVIA</div>
               <div className="bolivia-map-shell">
-                <BoliviaDepartmentMap selected={selectedDepartment} reports={basketReports} onSelect={setSelectedDepartment}/>
+                <BoliviaDepartmentMap selected={selectedDepartment} reports={displayBasketReports} onSelect={setSelectedDepartment}/>
               </div>
-              <div className="map-selection-summary"><span>Departamento seleccionado</span><b>{selectedDepartment}</b><small>{basketReports.filter((report) => report.department === selectedDepartment).length} precios comunitarios verificados</small></div>
+              <div className="map-selection-summary"><span>Departamento seleccionado</span><b>{selectedDepartment}</b><small>{displayBasketReports.filter((report) => report.department === selectedDepartment).length} referencias y aportes disponibles</small></div>
               <p>Toca directamente un departamento del mapa para consultar sus mercados y precios verificados.</p>
             </article>
             <article className="basket-results panel">
@@ -2372,18 +2393,18 @@ export default function Home() {
                 {nationalReferences[selectedBasketProduct] ? <><b>Bs {nationalReferences[selectedBasketProduct].price.toFixed(2)} / {nationalReferences[selectedBasketProduct].unit}</b><span>{nationalReferences[selectedBasketProduct].source}</span></> : <><b>Esperando datos verificados</b><span>No mostramos precios sin fuente o fecha.</span></>}
               </div>
               <div className="basket-kpis">
-                <div><small>PROMEDIO COMUNITARIO</small><b>{selectedBasketAverage === null ? "—" : `Bs ${selectedBasketAverage.toFixed(2)}`}</b><span>{selectedBasketReports.length} reportes · / {basketUnit}</span></div>
+                <div><small>PROMEDIO REFERENCIAL</small><b>{selectedBasketAverage === null ? "—" : `Bs ${selectedBasketAverage.toFixed(2)}`}</b><span>{selectedBasketReports.length} datos · / {basketUnit}</span></div>
                 <div><small>RANGO OBSERVADO</small><b>{basketMin === null ? "—" : `${basketMin.toFixed(2)}–${basketMax?.toFixed(2)}`}</b><span>mínimo–máximo</span></div>
                 <div className={selectedBasketChange === null ? "" : selectedBasketChange > 0 ? "price-up" : "price-down"}><small>ÚLTIMO CAMBIO</small><b>{selectedBasketChange === null ? "—" : `${selectedBasketChange > 0 ? "+" : ""}${selectedBasketChange.toFixed(1)}%`}</b><span>vs. reporte anterior</span></div>
               </div>
               {selectedBasketReports.length > 0 && <div className="basket-price-motion" aria-label="Evolución de precios"><div className="motion-grid">{[...selectedBasketReports].reverse().slice(-12).map((report) => { const ceiling = basketMax || Number(report.price); const floor = basketMin || 0; const height = ceiling === floor ? 62 : 24 + ((Number(report.price) - floor) / (ceiling - floor)) * 70; return <button key={report.id} title={`${report.market}: Bs ${Number(report.price).toFixed(2)}`} style={{ height: `${height}%` }}><span>{Number(report.price).toFixed(2)}</span></button>; })}</div><small>Histórico filtrado · cada barra es un precio aprobado</small></div>}
               <div className="market-price-list">
-                {selectedBasketReports.length ? selectedBasketReports.map((report) => <div key={report.id}><span><b>{report.market}</b><small>{report.city} · {new Date(report.purchased_on).toLocaleDateString("es-BO")}</small></span><strong>Bs {Number(report.price).toFixed(2)} / {report.unit}</strong></div>) : <p>Aún no existen precios comunitarios verificados para estos filtros.</p>}
+                {selectedBasketReports.length ? selectedBasketReports.map((report) => <div key={report.id}><span><b>{report.market}</b><small>{report.city} · {new Date(report.purchased_on).toLocaleDateString("es-BO")} · {report.estimated ? "estimado, no oficial" : "aporte comunitario aprobado"}</small></span><strong>Bs {Number(report.price).toFixed(2)} / {report.unit}</strong></div>) : <p>Aún no existen precios referenciales para estos filtros.</p>}
               </div>
             </article>
           </div>
           <article className="basket-ranking panel">
-            <div><span className="panel-label">PROMEDIOS POR DEPARTAMENTO</span><h2>{selectedBasketProduct} · Bs/{basketUnit}</h2><p>Calculado únicamente con reportes aprobados del periodo y filtros seleccionados.</p></div>
+            <div><span className="panel-label">PROMEDIOS POR DEPARTAMENTO</span><h2>{selectedBasketProduct} · Bs/{basketUnit}</h2><p>Calculado con referencias estimadas y aportes comunitarios aprobados del periodo seleccionado.</p></div>
             <div className="department-bars">{basketDepartmentStats.length ? basketDepartmentStats.map((row) => <button key={row.department} className={selectedDepartment === row.department ? "active" : ""} onClick={() => setSelectedDepartment(row.department)}><span><b>{row.department}</b><small>{row.count} reportes</small></span><i style={{ width: `${Math.max(12, (Number(row.average) / Math.max(...basketDepartmentStats.map((item) => Number(item.average)))) * 100)}%` }}></i><strong>Bs {Number(row.average).toFixed(2)}</strong></button>) : <div className="basket-empty"><b>Aún no hay suficientes datos comparables.</b><span>Los aportes pagados y aprobados irán construyendo este promedio por departamento.</span></div>}</div>
           </article>
           <article className="basket-contribution panel">
@@ -2400,7 +2421,7 @@ export default function Home() {
             </form> : <button className="practice" onClick={() => setView(authUser ? "plans" : "login")}>Accede con un plan para aportar precios</button>}
             {basketMessage && <p className="basket-message">{basketMessage}</p>}
           </article>
-          <p className="basket-disclaimer">Los precios son referencias fechadas y pueden cambiar entre mercados, marcas, calidades y horarios. El IPC del INE es el indicador oficial de inflación; los aportes comunitarios no lo sustituyen.</p>
+          <p className="basket-disclaimer">Los valores marcados como estimados son referencias orientativas no oficiales: no corresponden necesariamente a una cotización observada en un mercado. Los aportes comunitarios aprobados se identifican por separado. Los precios pueden cambiar según mercado, marca, calidad y horario; el IPC del INE continúa siendo el indicador oficial de inflación.</p>
         </section>
       )}
       {view === "community" && (
