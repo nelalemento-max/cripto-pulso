@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 type FuelStatus = "high" | "medium" | "low" | "unavailable";
 type Station = {
   id: number; name: string; address: string; status: FuelStatus; hasSales: boolean;
-  lastSaleAt?: string | null; dispatchInProgress: boolean; sourceUpdatedAt?: string | null;
+  lastSaleAt?: string | null; dispatchInProgress: boolean; dispatchAt?: string | null; sourceUpdatedAt?: string | null;
 };
 type Trend = { time: string; high: number; medium: number; low: number; unavailable: number; total: number; index: number };
 type FuelResponse = { stations: Station[]; trend: Trend[]; sourceTime: string; observedAt: string; source: string; methodology: string; error?: string };
@@ -20,6 +20,13 @@ const statusInfo: Record<FuelStatus, { label: string; level: number; range: stri
   low: { label: "Saldo bajo", level: 18, range: "Menos de 5.000 L", tone: "red" },
   unavailable: { label: "Sin saldo reportado", level: 0, range: "Sin disponibilidad informada", tone: "gray" },
 };
+const productInfo = {
+  gasoline: { label: "Gasolina", short: "Gasolina" },
+  diesel: { label: "Diésel", short: "Diésel" },
+  premium: { label: "Gasolina Premium", short: "Premium" },
+  uls: { label: "Diésel Oil Plus (ULS)", short: "Diésel Plus" },
+} as const;
+type Product = keyof typeof productInfo;
 
 function timeAgo(value?: string | null) {
   if (!value) return "sin hora reportada";
@@ -41,7 +48,7 @@ function LiquidTank({ status, compact = false }: { status: FuelStatus; compact?:
 
 export default function FuelSupplyDashboard() {
   const [department, setDepartment] = useState(2);
-  const [product, setProduct] = useState<"gasoline" | "diesel">("gasoline");
+  const [product, setProduct] = useState<Product>("gasoline");
   const [statusFilter, setStatusFilter] = useState<"all" | FuelStatus>("all");
   const [search, setSearch] = useState("");
   const [data, setData] = useState<FuelResponse | null>(null);
@@ -87,7 +94,7 @@ export default function FuelSupplyDashboard() {
 
     <article className="fuel-filters panel">
       <label>DEPARTAMENTO<select value={department} onChange={(event) => setDepartment(Number(event.target.value))}>{departments.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>
-      <label>PRODUCTO<select value={product} onChange={(event) => setProduct(event.target.value as "gasoline" | "diesel")}><option value="gasoline">Gasolina</option><option value="diesel">Diésel</option></select></label>
+      <label>PRODUCTO<select value={product} onChange={(event) => setProduct(event.target.value as Product)}>{Object.entries(productInfo).map(([id, info]) => <option key={id} value={id}>{info.label}</option>)}</select></label>
       <label>BUSCAR ESTACIÓN<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, zona o dirección" /></label>
       <button onClick={load} disabled={loading}>{loading ? "Consultando ANH…" : "Actualizar ahora"}</button>
     </article>
@@ -95,7 +102,7 @@ export default function FuelSupplyDashboard() {
     {error && <div className="fuel-error">{error}</div>}
     <div className="fuel-overview">
       <article className="panel main-tank-card">
-        <div><span className="panel-label">ÍNDICE CRIPTOPULSO</span><h2>{departmentName}</h2><p>{product === "gasoline" ? "Gasolina" : "Diésel"} · {total} estaciones informadas</p><div className="index-number"><b>{supplyIndex}</b><span>/100</span></div></div>
+        <div><span className="panel-label">ÍNDICE CRIPTOPULSO</span><h2>{departmentName}</h2><p>{productInfo[product].label} · {total} estaciones informadas</p><div className="index-number"><b>{supplyIndex}</b><span>/100</span></div></div>
         <LiquidTank status={supplyIndex >= 75 ? "high" : supplyIndex >= 40 ? "medium" : supplyIndex > 0 ? "low" : "unavailable"}/>
         <small className="tank-note">El nivel del tanque representa un índice por rangos; no es un volumen exacto del departamento.</small>
       </article>
@@ -124,7 +131,7 @@ export default function FuelSupplyDashboard() {
 
     <article className="station-section">
       <div className="station-title"><div><span className="panel-label">ESTACIONES</span><h2>Tanques por estación</h2></div><span>{filtered.length} resultados</span></div>
-      <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><small>{station.hasSales ? "● VENTA ACTIVA" : "○ SIN VENTA ACTIVA"}{station.dispatchInProgress ? " · CISTERNA EN CAMINO" : ""}</small><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span><em>Última venta: {timeAgo(station.lastSaleAt)}</em></div></article>; })}</div>
+      <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><div className="station-events">{station.dispatchInProgress && <span className="station-event dispatch">↻ Despacho en curso{station.dispatchAt ? ` · ${timeAgo(station.dispatchAt)}` : ""}</span>}{station.hasSales ? <span className="station-event sale">● Con venta: {timeAgo(station.lastSaleAt)}</span> : <span className="station-event quiet">○ Sin venta activa · última {timeAgo(station.lastSaleAt)}</span>}</div><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span></div></article>; })}</div>
       {filtered.length > 12 && <button className="show-stations" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${filtered.length} estaciones`}</button>}
     </article>
     <p className="fuel-disclaimer">Fuente: aplicación ANH Abastecimiento. CriptoPulso presenta análisis propios. Los tanques y porcentajes son representaciones de rangos, no mediciones exactas. La disponibilidad puede cambiar durante el traslado del usuario.</p>
