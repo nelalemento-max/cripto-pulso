@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import "./dynamic.css";
 
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
   description: "Aprende. Practica. Comprende el mercado.",
   other: {
     "codex-preview": "development",
+    "google-adsense-account": "ca-pub-7639179482151025",
   },
   icons: {
     icon: [{ url: "/icon.svg?v=2", type: "image/svg+xml" }],
@@ -36,6 +38,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Script
+          id="google-adsense"
+          async
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7639179482151025"
+        />
       </body>
     </html>
   );
