@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 type FuelStatus = "high" | "medium" | "low" | "unavailable";
 type Station = {
   id: number; name: string; address: string; status: FuelStatus; hasSales: boolean;
+  latitude?: number | null; longitude?: number | null;
   lastSaleAt?: string | null; dispatchInProgress: boolean; dispatchAt?: string | null; sourceUpdatedAt?: string | null;
 };
 type Trend = { time: string; high: number; medium: number; low: number; unavailable: number; total: number; index: number };
@@ -27,6 +28,7 @@ const productInfo = {
   uls: { label: "Diésel Oil Plus (ULS)", short: "Diésel Plus" },
 } as const;
 type Product = keyof typeof productInfo;
+type TankOrder = "source" | "highest" | "lowest";
 
 function timeAgo(value?: string | null) {
   if (!value) return "sin hora reportada";
@@ -55,6 +57,8 @@ export default function FuelSupplyDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [tankOrder, setTankOrder] = useState<TankOrder>("source");
+  const [dailyVisitors, setDailyVisitors] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -68,6 +72,12 @@ export default function FuelSupplyDashboard() {
   }, [department, product]);
 
   useEffect(() => { load(); const timer = window.setInterval(load, 300000); return () => window.clearInterval(timer); }, [load]);
+  useEffect(() => {
+    fetch("/api/visits", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((metrics) => setDailyVisitors(Number(metrics?.today ?? 0)))
+      .catch(() => undefined);
+  }, []);
 
   const counts = useMemo(() => {
     const base = { high: 0, medium: 0, low: 0, unavailable: 0 };
@@ -78,10 +88,16 @@ export default function FuelSupplyDashboard() {
   const supplyIndex = total ? Math.round((counts.high * 100 + counts.medium * 60 + counts.low * 20) / total) : 0;
   const selling = data?.stations.filter((station) => station.hasSales).length ?? 0;
   const dispatches = data?.stations.filter((station) => station.dispatchInProgress).length ?? 0;
-  const filtered = (data?.stations ?? []).filter((station) =>
-    (statusFilter === "all" || station.status === statusFilter) &&
-    (!search || `${station.name} ${station.address}`.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filtered = useMemo(() => {
+    const level = (station: Station) => statusInfo[station.status].level;
+    const results = (data?.stations ?? []).filter((station) =>
+      (statusFilter === "all" || station.status === statusFilter) &&
+      (!search || `${station.name} ${station.address}`.toLowerCase().includes(search.toLowerCase())),
+    );
+    if (tankOrder === "highest") return results.toSorted((a, b) => level(b) - level(a));
+    if (tankOrder === "lowest") return results.toSorted((a, b) => level(a) - level(b));
+    return results;
+  }, [data, search, statusFilter, tankOrder]);
   const shown = showAll ? filtered : filtered.slice(0, 12);
   const departmentName = departments.find(([id]) => id === department)?.[1] ?? "Bolivia";
   const chartPoints = (data?.trend ?? []).map((point, index, values) => `${values.length === 1 ? 50 : 8 + index * (84 / (values.length - 1))},${92 - point.index * .78}`).join(" ");
@@ -114,6 +130,11 @@ export default function FuelSupplyDashboard() {
       </article>
     </div>
 
+    <aside className="fuel-ad-slot panel" aria-label="Espacio publicitario">
+      <div><small>ESPACIO PUBLICITARIO</small><b>Publicidad para una audiencia interesada en Bolivia</b><span>Área reservada para Google AdSense o anunciantes directos.</span></div>
+      <div className="fuel-daily-audience"><small>VISITANTES ÚNICOS HOY</small><b>{dailyVisitors.toLocaleString("es-BO")}</b><span>medición real por dispositivo</span></div>
+    </aside>
+
     <article className="panel status-distribution">
       <div><span className="panel-label">DISTRIBUCIÓN ACTUAL</span><h2>¿Cómo está el abastecimiento?</h2></div>
       <div className="status-buttons">
@@ -131,7 +152,8 @@ export default function FuelSupplyDashboard() {
 
     <article className="station-section">
       <div className="station-title"><div><span className="panel-label">ESTACIONES</span><h2>Tanques por estación</h2></div><span>{filtered.length} resultados</span></div>
-      <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><div className="station-events">{station.dispatchInProgress && <span className="station-event dispatch">↻ Despacho en curso{station.dispatchAt ? ` · ${timeAgo(station.dispatchAt)}` : ""}</span>}{station.hasSales ? <span className="station-event sale">● Con venta: {timeAgo(station.lastSaleAt)}</span> : <span className="station-event quiet">○ Sin venta activa · última {timeAgo(station.lastSaleAt)}</span>}</div><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span></div></article>; })}</div>
+      <div className="tank-list-controls panel"><div role="group" aria-label="Filtrar estaciones por nivel"><button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>Todas</button><button className={statusFilter === "high" ? "active" : ""} onClick={() => setStatusFilter("high")}>Más combustible</button><button className={statusFilter === "low" ? "active" : ""} onClick={() => setStatusFilter("low")}>Menos combustible</button></div><label>ORDENAR<select value={tankOrder} onChange={(event) => setTankOrder(event.target.value as TankOrder)}><option value="source">Orden de la fuente</option><option value="highest">Mayor a menor saldo</option><option value="lowest">Menor a mayor saldo</option></select></label></div>
+      <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; const mapUrl = station.latitude != null && station.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${station.name}, ${station.address}, ${departmentName}, Bolivia`)}`; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><div className="station-events">{station.dispatchInProgress && <span className="station-event dispatch">↻ Despacho en curso{station.dispatchAt ? ` · ${timeAgo(station.dispatchAt)}` : ""}</span>}{station.hasSales ? <span className="station-event sale">● Con venta: {timeAgo(station.lastSaleAt)}</span> : <span className="station-event quiet">○ Sin venta activa · última {timeAgo(station.lastSaleAt)}</span>}</div><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span><a className="station-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver ${station.name} en Google Maps`}>⌖ Ver ubicación en el mapa</a></div></article>; })}</div>
       {filtered.length > 12 && <button className="show-stations" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${filtered.length} estaciones`}</button>}
     </article>
     <p className="fuel-disclaimer">Fuente: aplicación ANH Abastecimiento. CriptoPulso presenta análisis propios. Los tanques y porcentajes son representaciones de rangos, no mediciones exactas. La disponibilidad puede cambiar durante el traslado del usuario.</p>
