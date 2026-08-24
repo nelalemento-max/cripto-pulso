@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
+import FuelSupplyDashboard from "@/app/components/FuelSupplyDashboard";
 
 type Coin = {
   id: string;
@@ -693,6 +694,7 @@ export default function Home() {
     | "market"
     | "simulator"
     | "dollar"
+    | "fuel"
     | "basket"
     | "community"
     | "academy"
@@ -1409,6 +1411,7 @@ export default function Home() {
             ["market", "Mercado"],
             ["simulator", "Simulador"],
             ["dollar", "Datos Bolivia"],
+            ["fuel", "Combustibles"],
             ["basket", "Canasta familiar"],
             ["community", "Comunidad"],
             ["academy", "Academia"],
@@ -2424,6 +2427,7 @@ export default function Home() {
           <p className="basket-disclaimer">Los valores marcados como estimados son referencias orientativas no oficiales: no corresponden necesariamente a una cotización observada en un mercado. Los aportes comunitarios aprobados se identifican por separado. Los precios pueden cambiar según mercado, marca, calidad y horario; el IPC del INE continúa siendo el indicador oficial de inflación.</p>
         </section>
       )}
+      {view === "fuel" && <FuelSupplyDashboard />}
       {view === "community" && (
         <section className="page community-page">
           <div className="page-title">
