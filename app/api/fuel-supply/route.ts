@@ -7,7 +7,7 @@ export const maxDuration = 60;
 const ANH_BASE = "https://vsr11vpr08m22gb.anh.gob.bo:9443/WSMobile/v2";
 // Identificador público incluido en la aplicación oficial. Solo se usa en el servidor.
 const ANH_APP_ID = "9ADE86E5A083423EBE50C051F4DB9778";
-const products = { gasoline: 1, diesel: 2 } as const;
+const products = { gasoline: 0, diesel: 1, premium: 2, uls: 3 } as const;
 
 type Product = keyof typeof products;
 type AnhStation = {
