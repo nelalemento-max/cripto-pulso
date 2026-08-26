@@ -100,7 +100,17 @@ export default function FuelSupplyDashboard() {
   }, [data, search, statusFilter, tankOrder]);
   const shown = showAll ? filtered : filtered.slice(0, 12);
   const departmentName = departments.find(([id]) => id === department)?.[1] ?? "Bolivia";
-  const chartPoints = (data?.trend ?? []).map((point, index, values) => `${values.length === 1 ? 50 : 8 + index * (84 / (values.length - 1))},${92 - point.index * .78}`).join(" ");
+  const trend = data?.trend ?? [];
+  const trendValues = trend.map((point) => point.index);
+  const rawTrendMin = trendValues.length ? Math.min(...trendValues) : 0;
+  const rawTrendMax = trendValues.length ? Math.max(...trendValues) : 100;
+  const trendPadding = Math.max(3, Math.ceil((rawTrendMax - rawTrendMin) * .2));
+  const trendMin = Math.max(0, rawTrendMin - trendPadding);
+  const trendMax = Math.min(100, rawTrendMax + trendPadding);
+  const trendRange = Math.max(1, trendMax - trendMin);
+  const chartY = (value: number) => 88 - ((value - trendMin) / trendRange) * 70;
+  const chartPoints = trend.map((point, index, values) => `${values.length === 1 ? 50 : 8 + index * (86 / (values.length - 1))},${chartY(point.index)}`).join(" ");
+  const trendChange = trend.length > 1 ? trend.at(-1)!.index - trend[0].index : 0;
 
   return <section className="page fuel-page">
     <header className="fuel-hero">
@@ -144,8 +154,8 @@ export default function FuelSupplyDashboard() {
 
     <div className="fuel-analysis-grid">
       <article className="panel supply-trend">
-        <div className="panel-label">HISTÓRICO PROPIO</div><h2>Evolución del índice</h2>
-        {(data?.trend.length ?? 0) > 1 ? <><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Evolución del índice de abastecimiento"><g>{[20,40,60,80].map((y) => <line key={y} x1="5" x2="96" y1={92-y*.78} y2={92-y*.78}/>)}</g><polyline points={chartPoints}/>{data?.trend.map((point, index, values) => <circle key={point.time} cx={values.length === 1 ? 50 : 8 + index * (84 / (values.length - 1))} cy={92-point.index*.78} r="1.8"><title>{new Date(point.time).toLocaleString("es-BO")}: {point.index}/100</title></circle>)}</svg><div className="trend-axis"><span>0</span><span>Índice 100</span></div></> : <div className="history-empty"><b>El historial comienza hoy.</b><span>Cada consulta guardará una fotografía; pronto aparecerá la evolución por horas y días.</span></div>}
+        <div className="panel-label">ÍNDICE CRIPTOPULSO · CADA 30 MINUTOS</div><h2>Evolución del abastecimiento</h2>
+        {trend.length > 1 ? <><div className="trend-summary"><span>Primer dato <b>{trend[0].index}</b></span><span>Último dato <b>{trend.at(-1)!.index}</b></span><span className={trendChange > 0 ? "up" : trendChange < 0 ? "down" : ""}>Variación <b>{trendChange > 0 ? "+" : ""}{trendChange}</b></span></div><div className="trend-chart-shell"><div className="trend-scale"><b>{trendMax}</b><span>{Math.round((trendMax + trendMin) / 2)}</span><b>{trendMin}</b></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Evolución real del índice de abastecimiento"><g>{[18,41.3,64.6,88].map((y) => <line key={y} x1="5" x2="96" y1={y} y2={y}/>)}</g><polyline points={chartPoints}/>{trend.map((point, index, values) => <circle key={point.time} cx={values.length === 1 ? 50 : 8 + index * (86 / (values.length - 1))} cy={chartY(point.index)} r="1.6"><title>{new Date(point.time).toLocaleString("es-BO")}: índice {point.index}/100 · completas {point.high} · aceptables {point.medium} · bajas {point.low}</title></circle>)}</svg></div><div className="trend-axis"><span>{new Date(trend[0].time).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{new Date(trend.at(-1)!.time).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></div>{rawTrendMin === rawTrendMax && <p className="trend-flat-note">La fuente mantuvo el mismo estado durante todo este periodo; por eso la línea es realmente horizontal.</p>}</> : <div className="history-empty"><b>El historial comienza hoy.</b><span>Cada consulta guardará una fotografía; pronto aparecerá la evolución por intervalos de 30 minutos.</span></div>}
       </article>
       <article className="panel useful-reading"><div className="panel-label">LECTURA ÚTIL</div><h2>¿Qué significa ahora?</h2><ul><li><b>{counts.high} estaciones</b> reportan un nivel superior a 15.000 litros.</li><li><b>{counts.low} estaciones</b> pueden requerir reposición pronto.</li><li><b>{total - selling} estaciones</b> no informan venta activa en este momento.</li><li><b>{dispatches} estaciones</b> tienen despacho en curso.</li></ul></article>
     </div>
