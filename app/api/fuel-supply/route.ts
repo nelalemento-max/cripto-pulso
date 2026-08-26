@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       sourceUpdatedAt: station.updated_at,
     }));
 
-    let history: Array<{ observed_at: string; balance_status: string }> = [];
+    let trend: Array<{ time: string; high: number; medium: number; low: number; unavailable: number; total: number; index: number }> = [];
     try {
       const admin = createAdminClient();
       if (stations.length) {
@@ -103,32 +103,25 @@ export async function GET(request: NextRequest) {
           observed_bucket: observedBucket,
         })), { onConflict: "station_id,product,observed_bucket", ignoreDuplicates: true });
       }
-      const stationIds = stations.map((station) => station.id);
-      if (stationIds.length) {
-        const { data } = await admin.from("fuel_status_snapshots")
-          .select("observed_at,balance_status")
+      const { data } = await admin.from("fuel_supply_trend")
+          .select("observed_bucket,high,medium,low,unavailable,total,index")
+          .eq("department_id", department)
           .eq("product", product)
-          .in("station_id", stationIds)
-          .gte("observed_at", new Date(Date.now() - 7 * 86400000).toISOString())
-          .order("observed_at", { ascending: true })
-          .limit(5000);
-        history = data ?? [];
-      }
+          .gte("observed_bucket", new Date(Date.now() - 7 * 86400000).toISOString())
+          .order("observed_bucket", { ascending: true })
+          .limit(336);
+      trend = (data ?? []).map((row) => ({
+        time: row.observed_bucket,
+        high: row.high,
+        medium: row.medium,
+        low: row.low,
+        unavailable: row.unavailable,
+        total: row.total,
+        index: row.index,
+      }));
     } catch (storageError) {
       console.error("Fuel history storage unavailable", storageError);
     }
-
-    const historyByHour = new Map<string, { high: number; medium: number; low: number; unavailable: number }>();
-    history.forEach((row) => {
-      const key = new Date(row.observed_at).toISOString().slice(0, 13) + ":00:00.000Z";
-      const point = historyByHour.get(key) ?? { high: 0, medium: 0, low: 0, unavailable: 0 };
-      point[row.balance_status as keyof typeof point] += 1;
-      historyByHour.set(key, point);
-    });
-    const trend = Array.from(historyByHour, ([time, counts]) => {
-      const total = counts.high + counts.medium + counts.low + counts.unavailable;
-      return { time, ...counts, total, index: total ? Math.round((counts.high * 100 + counts.medium * 60 + counts.low * 20) / total) : 0 };
-    }).slice(-48);
 
     return NextResponse.json({
       stations,
