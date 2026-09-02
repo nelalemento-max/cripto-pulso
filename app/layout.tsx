@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./dynamic.css";
+import "./editorial.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CriptoPulso",
-  description: "Aprende. Practica. Comprende el mercado.",
+  metadataBase: new URL("https://cripto-pulso.vercel.app"),
+  title: { default: "CriptoPulso", template: "%s | CriptoPulso" },
+  description: "Información y educación para comprender criptomonedas, dólar, canasta familiar y abastecimiento de combustibles en Bolivia.",
   robots: {
     index: true,
     follow: true,
@@ -38,13 +40,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7639179482151025"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

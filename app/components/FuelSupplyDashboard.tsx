@@ -58,7 +58,6 @@ export default function FuelSupplyDashboard() {
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [tankOrder, setTankOrder] = useState<TankOrder>("source");
-  const [dailyVisitors, setDailyVisitors] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -72,12 +71,6 @@ export default function FuelSupplyDashboard() {
   }, [department, product]);
 
   useEffect(() => { load(); const timer = window.setInterval(load, 300000); return () => window.clearInterval(timer); }, [load]);
-  useEffect(() => {
-    fetch("/api/visits", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((metrics) => setDailyVisitors(Number(metrics?.today ?? 0)))
-      .catch(() => undefined);
-  }, []);
 
   const counts = useMemo(() => {
     const base = { high: 0, medium: 0, low: 0, unavailable: 0 };
@@ -140,11 +133,6 @@ export default function FuelSupplyDashboard() {
       </article>
     </div>
 
-    <aside className="fuel-ad-slot panel" aria-label="Espacio publicitario">
-      <div><small>ESPACIO PUBLICITARIO</small><b>Publicidad para una audiencia interesada en Bolivia</b><span>Área reservada para Google AdSense o anunciantes directos.</span></div>
-      <div className="fuel-daily-audience"><small>VISITANTES ÚNICOS HOY</small><b>{dailyVisitors.toLocaleString("es-BO")}</b><span>medición real por dispositivo</span></div>
-    </aside>
-
     <article className="panel status-distribution">
       <div><span className="panel-label">DISTRIBUCIÓN ACTUAL</span><h2>¿Cómo está el abastecimiento?</h2></div>
       <div className="status-buttons">
@@ -166,6 +154,6 @@ export default function FuelSupplyDashboard() {
       <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; const mapUrl = station.latitude != null && station.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${station.name}, ${station.address}, ${departmentName}, Bolivia`)}`; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><div className="station-events">{station.dispatchInProgress && <span className="station-event dispatch">↻ Despacho en curso{station.dispatchAt ? ` · ${timeAgo(station.dispatchAt)}` : ""}</span>}{station.hasSales ? <span className="station-event sale">● Con venta: {timeAgo(station.lastSaleAt)}</span> : <span className="station-event quiet">○ Sin venta activa · última {timeAgo(station.lastSaleAt)}</span>}</div><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span><a className="station-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver ${station.name} en Google Maps`}>⌖ Ver ubicación en el mapa</a></div></article>; })}</div>
       {filtered.length > 12 && <button className="show-stations" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${filtered.length} estaciones`}</button>}
     </article>
-    <p className="fuel-disclaimer">Fuente: aplicación ANH Abastecimiento. CriptoPulso presenta análisis propios. Los tanques y porcentajes son representaciones de rangos, no mediciones exactas. La disponibilidad puede cambiar durante el traslado del usuario.</p>
+    <p className="fuel-disclaimer">Fuente: aplicación ANH Abastecimiento. CriptoPulso presenta análisis propios. Los tanques y porcentajes son representaciones de rangos, no mediciones exactas. La disponibilidad puede cambiar durante el traslado del usuario. <a href="/guias/como-interpretar-abastecimiento-combustibles">Consulta la metodología y aprende a interpretar los datos.</a></p>
   </section>;
 }
