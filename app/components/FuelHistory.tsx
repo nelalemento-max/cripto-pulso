@@ -37,9 +37,9 @@ export function FuelChart({points,metric,label}:{points:FuelPoint[];metric:"tota
   </svg><label className="history-scrubber">Explorar lecturas<input aria-label={label+" fecha"} type="range" min="0" max={points.length-1} value={selected==null?points.length-1:Math.min(selected,points.length-1)} onChange={e=>setSelected(Number(e.target.value))}/></label>
   <p>{new Date(p.observed_bucket).toLocaleString("es-BO",{timeZone:"America/La_Paz"})} · <strong>{fuelNumber(p[metric])}{metric==="index"?" /100":" L"}</strong> · {p.total} estaciones</p></>;
 }
-export function FuelHistoryPanels({points}:{points:FuelPoint[]}){
+export function FuelHistoryPanels({points,dailyPoints=points}:{points:FuelPoint[];dailyPoints?:FuelPoint[]}){
   const daily=new Map<string,{sales:number;restock:number}>();
-  for(const p of points){
+  for(const p of dailyPoints){
     const date=new Date(Date.parse(p.observed_bucket)-4*3600000).toISOString().slice(0,10);
     const row=daily.get(date)??{sales:0,restock:0};
     row.sales+=p.estimated_outflow_liters;row.restock+=p.estimated_restock_liters;daily.set(date,row);
