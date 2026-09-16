@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import FuelBoliviaDashboard from "./FuelBoliviaDashboard";
 import StationFuelHistory from "./FuelHistory";
 import "./fuel-analytics.css";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
@@ -31,6 +31,18 @@ function LiquidTank({percent,liters,compact=false}:{percent:number;liters:number
 }
 
 export default function FuelSupplyDashboard(){
+  const [tab,setTab]=useState("stations");
+  const [nationalOpened,setNationalOpened]=useState(false);
+  return <section aria-label="Combustibles">
+    <div className="fuel-view-tabs" role="tablist" aria-label="Vistas de combustibles">
+      {[['stations','Departamentos y estaciones'],['bolivia','Bolivia total']].map(([id,label])=><button key={id} id={"fuel-tab-"+id} role="tab" aria-selected={tab===id} aria-controls={"fuel-panel-"+id} onClick={()=>{setTab(id);if(id==="bolivia")setNationalOpened(true);}}>{label}</button>)}
+    </div>
+    <div id="fuel-panel-stations" role="tabpanel" aria-labelledby="fuel-tab-stations" hidden={tab!=="stations"}><DepartmentFuelDashboard/></div>
+    <div id="fuel-panel-bolivia" role="tabpanel" aria-labelledby="fuel-tab-bolivia" hidden={tab!=="bolivia"}>{nationalOpened&&<FuelBoliviaDashboard/>}</div>
+  </section>;
+}
+
+function DepartmentFuelDashboard(){
   const[department,setDepartment]=useState(2);const[product,setProduct]=useState<Product>("gasoline");const[filter,setFilter]=useState<Filter>("all");const[order,setOrder]=useState<Order>("highest");const[search,setSearch]=useState("");const[data,setData]=useState<FuelResponse|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[showAll,setShowAll]=useState(false);
   const requestId=useRef(0);
   const load=useCallback(async()=>{const id=++requestId.current;setLoading(true);setError("");setData(null);try{const response=await fetch(`/api/fuel-supply?department=${department}&product=${product}`,{cache:"no-store"});const body=await response.json();if(!response.ok)throw new Error(body.error??"No se pudo consultar ANH");if(id===requestId.current)setData(body)}catch(cause){if(id===requestId.current)setError(cause instanceof Error?cause.message:"No se pudo consultar ANH")}finally{if(id===requestId.current)setLoading(false)}},[department,product]);
@@ -40,7 +52,6 @@ export default function FuelSupplyDashboard(){
   const filtered=useMemo(()=>{const query=search.trim().toLowerCase();const result=stations.filter(s=>{const matches=!query||`${s.name} ${s.address} ${s.zone}`.toLowerCase().includes(query);if(!matches)return false;if(filter==="stock")return s.liters>0;if(filter==="empty")return s.liters===0;if(filter==="selling")return s.hasSales;if(filter==="dispatch")return s.dispatchInProgress;if(filter==="restocked")return s.eventType==="estimated_restock"||s.eventType==="official_dispatch";if(filter==="critical")return s.liters>0&&s.fillPercent<=20;return true});return result.toSorted((a,b)=>order==="lowest"?a.liters-b.liters:order==="autonomy"?(a.autonomyHours??9999)-(b.autonomyHours??9999):order==="recent"?Date.parse(b.sourceUpdatedAt??"0")-Date.parse(a.sourceUpdatedAt??"0"):b.liters-a.liters)},[stations,search,filter,order]);
   const shown=showAll?filtered:filtered.slice(0,12);const departmentName=departments.find(([id])=>id===department)?.[1]??"Bolivia";
   return <section className="page fuel-page">
-    <nav className="fuel-links"><Link href="/">CriptoPulso</Link><Link href="/combustibles/bolivia">Bolivia total · mapa y estadísticas →</Link></nav>
     <header className="fuel-hero"><div><span className="live-dot">● LITROS REPORTADOS · FUENTE ANH</span><h1>Cripto <i>Combustibles</i></h1><p>Saldos actuales por estación, autonomía y movimiento del abastecimiento explicados de forma clara.</p></div><div className="fuel-source"><small>ÚLTIMA LECTURA</small><b>{data?new Date(data.sourceTime).toLocaleTimeString("es-BO",{hour:"2-digit",minute:"2-digit"}):"—"}</b><span>Historial propio cada 15 minutos</span></div></header>
     <article className="fuel-filters panel"><label>DEPARTAMENTO<select value={department} onChange={e=>setDepartment(Number(e.target.value))}>{departments.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>PRODUCTO<select value={product} onChange={e=>setProduct(e.target.value as Product)}>{Object.entries(products).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>BUSCAR ESTACIÓN<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre, zona o dirección"/></label><button onClick={load} disabled={loading}>{loading?"Consultando…":"Actualizar"}</button></article>
     {error&&<div className="fuel-error">{error}</div>}

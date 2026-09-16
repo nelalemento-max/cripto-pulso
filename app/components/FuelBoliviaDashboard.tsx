@@ -35,8 +35,7 @@ export default function FuelBoliviaDashboard(){
       const b=path.getBBox();return{id:ids[i],x:(b.x+b.width/2)/2000*100,y:(b.y+b.height/2)/2208*100};
     }));
   }
-  return <main className="page fuel-page national-page">
-    <nav className="fuel-links"><Link href="/">CriptoPulso</Link><Link href="/combustibles">Estaciones y departamentos →</Link></nav>
+  return <section className="page fuel-page national-page">
     <header className="fuel-hero"><div><span className="live-dot">OBSERVATORIO NACIONAL · FUENTE ANH</span><h1>Bolivia <i>en combustible</i></h1><p>Compara la disponibilidad reportada, detecta diferencias regionales y explora el movimiento del abastecimiento.</p></div></header>
     <div className="panel analytics-controls"><label>Producto<select value={product} onChange={e=>setProduct(e.target.value)}>{Object.entries(fuelProducts).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>Periodo histórico<select value={days} onChange={e=>setDays(Number(e.target.value))}>{[1,7,30].map(n=><option value={n} key={n}>{n===1?"24 horas":n+" días"}</option>)}</select></label><label>Barras del mapa<select value={metric} onChange={e=>setMetric(e.target.value as typeof metric)}><option value="total_liters">Litros reportados</option><option value="available">Estaciones con saldo</option><option value="empty">Estaciones vacías</option><option value="selling">Venta activa</option><option value="index">Índice /100</option></select></label></div>
     {loading?<p role="status">Consultando los nueve departamentos…</p>:error?<p role="alert">{error}</p>:<>
@@ -48,5 +47,5 @@ export default function FuelBoliviaDashboard(){
     <FuelHistoryPanels key={product+"-"+department+"-"+days} points={selected} dailyPoints={department?selected:points}/>
     <article className="panel analytics-panel"><h2>Cómo interpretar esta vista</h2><p>Los litros reflejan saldos publicados por ANH, no la capacidad física certificada. Venta activa y saldo cero pueden coexistir por diferencias en la actualización de la fuente. Las ventas y recargas se estiman a partir de variaciones y pueden omitir movimientos entre consultas.</p><p>El índice nacional pondera el índice departamental por número de estaciones. Las barras comparan volúmenes absolutos: un departamento con más estaciones puede acumular más litros sin tener mejor cobertura territorial.</p><Link href="/metodologia">Consultar metodología</Link></article>
     </>}
-  </main>;
+  </section>;
 }
