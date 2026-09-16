@@ -2,158 +2,60 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type FuelStatus = "high" | "medium" | "low" | "unavailable";
-type Station = {
-  id: number; name: string; address: string; status: FuelStatus; hasSales: boolean;
-  latitude?: number | null; longitude?: number | null;
-  lastSaleAt?: string | null; dispatchInProgress: boolean; dispatchAt?: string | null; sourceUpdatedAt?: string | null;
-};
-type Trend = { time: string; high: number; medium: number; low: number; unavailable: number; total: number; index: number };
-type FuelResponse = { stations: Station[]; trend: Trend[]; sourceTime: string; observedAt: string; source: string; methodology: string; error?: string };
+type Confidence="high"|"medium"|"low";
+type EventType="initial"|"stable"|"estimated_sale"|"official_dispatch"|"estimated_restock"|"possible_correction"|"outlier";
+type Station={id:number;name:string;address:string;zone:string;latitude:number|null;longitude:number|null;liters:number;estimatedCapacityLiters:number;capacitySource:"default"|"learned";fillPercent:number;hasSales:boolean;lastSaleAt:string|null;dispatchInProgress:boolean;dispatchAt:string|null;trackingId:number|null;sourceUpdatedAt:string|null;lastChangeLiters:number|null;eventType:EventType;estimatedHourlySales:number;autonomyHours:number|null;confidence:Confidence};
+type Trend={observed_bucket:string;total:number;available:number;empty:number;selling:number;dispatches:number;total_liters:number;average_liters:number;median_liters:number;average_fill_percent:number;estimated_outflow_liters:number;estimated_restock_liters:number;index:number};
+type Daily={date:string;estimatedSalesLiters:number;estimatedRestockLiters:number;restockEvents:number};
+type FuelResponse={stations:Station[];trend:Trend[];daily:Daily[];sourceTime:string;observedAt:string;source:string;methodology:{official:string;estimated:string;cadenceMinutes:number};error?:string};
+type Product="gasoline"|"diesel"|"premium"|"uls";
+type Filter="all"|"stock"|"empty"|"selling"|"dispatch"|"restocked"|"critical";
+type Order="highest"|"lowest"|"autonomy"|"recent";
 
-const departments = [
-  [1, "Chuquisaca"], [2, "La Paz"], [3, "Cochabamba"], [4, "Oruro"], [5, "Potosí"],
-  [6, "Tarija"], [7, "Santa Cruz"], [8, "Beni"], [9, "Pando"],
-] as const;
-const statusInfo: Record<FuelStatus, { label: string; level: number; range: string; tone: string }> = {
-  high: { label: "Saldo completo", level: 88, range: "Más de 15.000 L", tone: "green" },
-  medium: { label: "Saldo aceptable", level: 58, range: "Entre 5.000 y 15.000 L", tone: "amber" },
-  low: { label: "Saldo bajo", level: 18, range: "Menos de 5.000 L", tone: "red" },
-  unavailable: { label: "Sin saldo reportado", level: 0, range: "Sin disponibilidad informada", tone: "gray" },
-};
-const productInfo = {
-  gasoline: { label: "Gasolina", short: "Gasolina" },
-  diesel: { label: "Diésel", short: "Diésel" },
-  premium: { label: "Gasolina Premium", short: "Premium" },
-  uls: { label: "Diésel Oil Plus (ULS)", short: "Diésel Plus" },
-} as const;
-type Product = keyof typeof productInfo;
-type TankOrder = "source" | "highest" | "lowest";
+const departments=[[1,"Chuquisaca"],[2,"La Paz"],[3,"Cochabamba"],[4,"Oruro"],[5,"Potosí"],[6,"Tarija"],[7,"Santa Cruz"],[8,"Beni"],[9,"Pando"]] as const;
+const products:Record<Product,string>={gasoline:"Gasolina Especial",diesel:"Diésel Oil",premium:"Gasolina Premium",uls:"Diésel Oil Plus (ULS)"};
+const filters:[Filter,string][]=[["all","Todas"],["stock","Con combustible"],["empty","Vacías"],["selling","Vendiendo"],["dispatch","Despacho en curso"],["restocked","Recarga detectada"],["critical","Cerca de agotarse"]];
+const formatLiters=(value:number)=>`${new Intl.NumberFormat("es-BO").format(Math.round(value))} L`;
+const formatCompact=(value:number)=>new Intl.NumberFormat("es-BO",{notation:"compact",maximumFractionDigits:1}).format(value);
+const timeAgo=(value?:string|null)=>{if(!value)return"sin hora";const min=Math.max(0,Math.floor((Date.now()-Date.parse(value))/60000));if(min<2)return"ahora";if(min<60)return`hace ${min} min`;if(min<1440)return`hace ${Math.floor(min/60)} h`;return`hace ${Math.floor(min/1440)} d`};
+const confidenceLabel:Record<Confidence,string>={low:"confianza inicial",medium:"confianza media",high:"confianza alta"};
+const statusFor=(station:Station)=>station.liters===0?"empty":station.fillPercent<=20?"critical":station.fillPercent<=50?"medium":"healthy";
+const autonomyLabel=(hours:number|null,confidence:Confidence)=>hours==null?"Aún sin historial suficiente":confidence==="low"?`Proyección inicial: ~${Math.max(1,Math.round(hours))} h`:hours<1?"Probablemente menos de 1 h":`Probablemente ${Math.max(1,Math.floor(hours))}–${Math.max(2,Math.ceil(hours+1))} h`;
 
-function timeAgo(value?: string | null) {
-  if (!value) return "sin hora reportada";
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 2) return "hace un momento";
-  if (minutes < 60) return `hace ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  return hours < 24 ? `hace ${hours} h` : `hace ${Math.floor(hours / 24)} días`;
+function LiquidTank({percent,liters,compact=false}:{percent:number;liters:number;compact?:boolean}){
+  const tone=liters===0?"gray":percent<=20?"red":percent<=50?"amber":"green";
+  return <div className={`liquid-tank ${tone} ${compact?"compact":""}`} aria-label={`${formatLiters(liters)}, ${percent}% estimado`}><div className="tank-scale"><i/><i/><i/><i/></div><div className="tank-liquid" style={{height:`${Math.max(0,Math.min(100,percent))}%`}}/><div className="tank-reading"><b>{Math.round(percent)}%</b><small>{compact?formatLiters(liters):"capacidad estimada"}</small></div></div>;
 }
 
-function LiquidTank({ status, compact = false }: { status: FuelStatus; compact?: boolean }) {
-  const info = statusInfo[status];
-  return <div className={`liquid-tank ${info.tone} ${compact ? "compact" : ""}`} aria-label={`${info.label}: nivel visual estimado ${info.level}%`}>
-    <div className="tank-scale"><i></i><i></i><i></i><i></i></div>
-    <div className="tank-liquid" style={{ height: `${info.level}%` }}><span></span></div>
-    <div className="tank-reading"><b>{info.level}%</b><small>estimación visual</small></div>
-  </div>;
+function LineChart({values,label,color="green"}:{values:{x:string;y:number}[];label:string;color?:"green"|"blue"}){
+  if(values.length<2)return <div className="history-empty"><b>Estamos construyendo el historial real</b><span>Se necesita más de una lectura para dibujar la evolución.</span></div>;
+  const ys=values.map(v=>v.y);const min=Math.min(...ys);const max=Math.max(...ys);const pad=Math.max(1,(max-min)*.15);const low=Math.max(0,min-pad);const high=max+pad;const range=Math.max(1,high-low);
+  const points=values.map((v,i)=>`${6+i*(90/(values.length-1))},${90-(v.y-low)/range*76}`).join(" ");
+  return <div className={`fuel-line-chart ${color}`}><div className="chart-range"><b>{Math.round(high).toLocaleString("es-BO")}</b><span>{Math.round(low).toLocaleString("es-BO")}</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={label}><g>{[14,39,64,90].map(y=><line key={y} x1="5" x2="97" y1={y} y2={y}/>)}</g><polyline points={points}/>{values.map((v,i)=><circle key={`${v.x}-${i}`} cx={6+i*(90/(values.length-1))} cy={90-(v.y-low)/range*76} r="1.35"><title>{new Date(v.x).toLocaleString("es-BO")}: {Math.round(v.y).toLocaleString("es-BO")}</title></circle>)}</svg><div className="trend-axis"><span>{new Date(values[0].x).toLocaleString("es-BO",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span><span>{new Date(values.at(-1)!.x).toLocaleString("es-BO",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div></div>;
 }
 
-export default function FuelSupplyDashboard() {
-  const [department, setDepartment] = useState(2);
-  const [product, setProduct] = useState<Product>("gasoline");
-  const [statusFilter, setStatusFilter] = useState<"all" | FuelStatus>("all");
-  const [search, setSearch] = useState("");
-  const [data, setData] = useState<FuelResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showAll, setShowAll] = useState(false);
-  const [tankOrder, setTankOrder] = useState<TankOrder>("source");
-
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try {
-      const response = await fetch(`/api/fuel-supply?department=${department}&product=${product}`, { cache: "no-store" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "No se pudo consultar ANH");
-      setData(body);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo consultar ANH"); }
-    finally { setLoading(false); }
-  }, [department, product]);
-
-  useEffect(() => { load(); const timer = window.setInterval(load, 300000); return () => window.clearInterval(timer); }, [load]);
-
-  const counts = useMemo(() => {
-    const base = { high: 0, medium: 0, low: 0, unavailable: 0 };
-    data?.stations.forEach((station) => base[station.status]++);
-    return base;
-  }, [data]);
-  const total = data?.stations.length ?? 0;
-  const supplyIndex = total ? Math.round((counts.high * 100 + counts.medium * 60 + counts.low * 20) / total) : 0;
-  const selling = data?.stations.filter((station) => station.hasSales).length ?? 0;
-  const dispatches = data?.stations.filter((station) => station.dispatchInProgress).length ?? 0;
-  const filtered = useMemo(() => {
-    const level = (station: Station) => statusInfo[station.status].level;
-    const results = (data?.stations ?? []).filter((station) =>
-      (statusFilter === "all" || station.status === statusFilter) &&
-      (!search || `${station.name} ${station.address}`.toLowerCase().includes(search.toLowerCase())),
-    );
-    if (tankOrder === "highest") return results.toSorted((a, b) => level(b) - level(a));
-    if (tankOrder === "lowest") return results.toSorted((a, b) => level(a) - level(b));
-    return results;
-  }, [data, search, statusFilter, tankOrder]);
-  const shown = showAll ? filtered : filtered.slice(0, 12);
-  const departmentName = departments.find(([id]) => id === department)?.[1] ?? "Bolivia";
-  const trend = data?.trend ?? [];
-  const trendValues = trend.map((point) => point.index);
-  const rawTrendMin = trendValues.length ? Math.min(...trendValues) : 0;
-  const rawTrendMax = trendValues.length ? Math.max(...trendValues) : 100;
-  const trendPadding = Math.max(3, Math.ceil((rawTrendMax - rawTrendMin) * .2));
-  const trendMin = Math.max(0, rawTrendMin - trendPadding);
-  const trendMax = Math.min(100, rawTrendMax + trendPadding);
-  const trendRange = Math.max(1, trendMax - trendMin);
-  const chartY = (value: number) => 88 - ((value - trendMin) / trendRange) * 70;
-  const chartPoints = trend.map((point, index, values) => `${values.length === 1 ? 50 : 8 + index * (86 / (values.length - 1))},${chartY(point.index)}`).join(" ");
-  const trendChange = trend.length > 1 ? trend.at(-1)!.index - trend[0].index : 0;
-
+export default function FuelSupplyDashboard(){
+  const[department,setDepartment]=useState(2);const[product,setProduct]=useState<Product>("gasoline");const[filter,setFilter]=useState<Filter>("all");const[order,setOrder]=useState<Order>("highest");const[search,setSearch]=useState("");const[data,setData]=useState<FuelResponse|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[showAll,setShowAll]=useState(false);const[period,setPeriod]=useState<"24h"|"7d">("24h");
+  const load=useCallback(async()=>{setLoading(true);setError("");try{const response=await fetch(`/api/fuel-supply?department=${department}&product=${product}`,{cache:"no-store"});const body=await response.json();if(!response.ok)throw new Error(body.error??"No se pudo consultar ANH");setData(body)}catch(cause){setError(cause instanceof Error?cause.message:"No se pudo consultar ANH")}finally{setLoading(false)}},[department,product]);
+  useEffect(()=>{load();const timer=window.setInterval(load,5*60_000);return()=>window.clearInterval(timer)},[load]);
+  const stations=data?.stations??[];const totalLiters=stations.reduce((sum,s)=>sum+s.liters,0);const capacity=stations.reduce((sum,s)=>sum+s.estimatedCapacityLiters,0);const overallPercent=capacity?Math.min(100,totalLiters/capacity*100):0;const selling=stations.filter(s=>s.hasSales).length;const empty=stations.filter(s=>s.liters===0).length;const dispatches=stations.filter(s=>s.dispatchInProgress).length;const currentTrend=data?.trend.at(-1);const supplyIndex=currentTrend?.index??0;
+  const cutoff=Date.now()-(period==="24h"?86_400_000:7*86_400_000);const trend=(data?.trend??[]).filter(p=>Date.parse(p.observed_bucket)>=cutoff);
+  const latestDay=data?.daily.at(-1);const estimatedSalesToday=latestDay?.estimatedSalesLiters??0;const estimatedRestockToday=latestDay?.estimatedRestockLiters??0;
+  const filtered=useMemo(()=>{const query=search.trim().toLowerCase();const result=stations.filter(s=>{const matches=!query||`${s.name} ${s.address} ${s.zone}`.toLowerCase().includes(query);if(!matches)return false;if(filter==="stock")return s.liters>0;if(filter==="empty")return s.liters===0;if(filter==="selling")return s.hasSales;if(filter==="dispatch")return s.dispatchInProgress;if(filter==="restocked")return s.eventType==="estimated_restock"||s.eventType==="official_dispatch";if(filter==="critical")return s.liters>0&&s.fillPercent<=20;return true});return result.toSorted((a,b)=>order==="lowest"?a.liters-b.liters:order==="autonomy"?(a.autonomyHours??9999)-(b.autonomyHours??9999):order==="recent"?Date.parse(b.sourceUpdatedAt??"0")-Date.parse(a.sourceUpdatedAt??"0"):b.liters-a.liters)},[stations,search,filter,order]);
+  const shown=showAll?filtered:filtered.slice(0,12);const departmentName=departments.find(([id])=>id===department)?.[1]??"Bolivia";
   return <section className="page fuel-page">
-    <header className="fuel-hero">
-      <div><span className="live-dot">● DATOS EN VIVO · FUENTE ANH</span><h1>Abastecimiento <i>Bolivia</i></h1><p>Transformamos estados operativos públicos en información visual para encontrar combustible y comprender el abastecimiento.</p></div>
-      <div className="fuel-source"><small>ÚLTIMA CONSULTA</small><b>{data ? new Date(data.sourceTime).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }) : "—"}</b><span>Actualización automática cada 5 minutos</span></div>
-    </header>
-
-    <article className="fuel-filters panel">
-      <label>DEPARTAMENTO<select value={department} onChange={(event) => setDepartment(Number(event.target.value))}>{departments.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>
-      <label>PRODUCTO<select value={product} onChange={(event) => setProduct(event.target.value as Product)}>{Object.entries(productInfo).map(([id, info]) => <option key={id} value={id}>{info.label}</option>)}</select></label>
-      <label>BUSCAR ESTACIÓN<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, zona o dirección" /></label>
-      <button onClick={load} disabled={loading}>{loading ? "Consultando ANH…" : "Actualizar ahora"}</button>
-    </article>
-
-    {error && <div className="fuel-error">{error}</div>}
-    <div className="fuel-overview">
-      <article className="panel main-tank-card">
-        <div><span className="panel-label">ÍNDICE CRIPTOPULSO</span><h2>{departmentName}</h2><p>{productInfo[product].label} · {total} estaciones informadas</p><div className="index-number"><b>{supplyIndex}</b><span>/100</span></div></div>
-        <LiquidTank status={supplyIndex >= 75 ? "high" : supplyIndex >= 40 ? "medium" : supplyIndex > 0 ? "low" : "unavailable"}/>
-        <small className="tank-note">El nivel del tanque representa un índice por rangos; no es un volumen exacto del departamento.</small>
-      </article>
-      <article className="panel fuel-kpis">
-        <div><small>VENDIENDO AHORA</small><b>{selling}</b><span>{total ? Math.round(selling / total * 100) : 0}% de estaciones</span></div>
-        <div><small>DESPACHOS EN CURSO</small><b>{dispatches}</b><span>reposición informada</span></div>
-        <div><small>SALDO COMPLETO</small><b>{counts.high}</b><span>más de 15.000 L</span></div>
-        <div><small>SALDO BAJO</small><b>{counts.low}</b><span>menos de 5.000 L</span></div>
-      </article>
-    </div>
-
-    <article className="panel status-distribution">
-      <div><span className="panel-label">DISTRIBUCIÓN ACTUAL</span><h2>¿Cómo está el abastecimiento?</h2></div>
-      <div className="status-buttons">
-        {(["high", "medium", "low", "unavailable"] as FuelStatus[]).map((status) => <button key={status} className={`${statusInfo[status].tone} ${statusFilter === status ? "active" : ""}`} onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}><b>{counts[status]}</b><span>{statusInfo[status].label}</span><i style={{ width: `${total ? counts[status] / total * 100 : 0}%` }}></i></button>)}
-      </div>
-    </article>
-
-    <div className="fuel-analysis-grid">
-      <article className="panel supply-trend">
-        <div className="panel-label">ÍNDICE CRIPTOPULSO · CADA 30 MINUTOS</div><h2>Evolución del abastecimiento</h2>
-        {trend.length > 1 ? <><div className="trend-summary"><span>Primer dato <b>{trend[0].index}</b></span><span>Último dato <b>{trend.at(-1)!.index}</b></span><span className={trendChange > 0 ? "up" : trendChange < 0 ? "down" : ""}>Variación <b>{trendChange > 0 ? "+" : ""}{trendChange}</b></span></div><div className="trend-chart-shell"><div className="trend-scale"><b>{trendMax}</b><span>{Math.round((trendMax + trendMin) / 2)}</span><b>{trendMin}</b></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Evolución real del índice de abastecimiento"><g>{[18,41.3,64.6,88].map((y) => <line key={y} x1="5" x2="96" y1={y} y2={y}/>)}</g><polyline points={chartPoints}/>{trend.map((point, index, values) => <circle key={point.time} cx={values.length === 1 ? 50 : 8 + index * (86 / (values.length - 1))} cy={chartY(point.index)} r="1.6"><title>{new Date(point.time).toLocaleString("es-BO")}: índice {point.index}/100 · completas {point.high} · aceptables {point.medium} · bajas {point.low}</title></circle>)}</svg></div><div className="trend-axis"><span>{new Date(trend[0].time).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{new Date(trend.at(-1)!.time).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></div>{rawTrendMin === rawTrendMax && <p className="trend-flat-note">La fuente mantuvo el mismo estado durante todo este periodo; por eso la línea es realmente horizontal.</p>}</> : <div className="history-empty"><b>El historial comienza hoy.</b><span>Cada consulta guardará una fotografía; pronto aparecerá la evolución por intervalos de 30 minutos.</span></div>}
-      </article>
-      <article className="panel useful-reading"><div className="panel-label">LECTURA ÚTIL</div><h2>¿Qué significa ahora?</h2><ul><li><b>{counts.high} estaciones</b> reportan un nivel superior a 15.000 litros.</li><li><b>{counts.low} estaciones</b> pueden requerir reposición pronto.</li><li><b>{total - selling} estaciones</b> no informan venta activa en este momento.</li><li><b>{dispatches} estaciones</b> tienen despacho en curso.</li></ul></article>
-    </div>
-
-    <article className="station-section">
-      <div className="station-title"><div><span className="panel-label">ESTACIONES</span><h2>Tanques por estación</h2></div><span>{filtered.length} resultados</span></div>
-      <div className="tank-list-controls panel"><div role="group" aria-label="Filtrar estaciones por nivel"><button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>Todas</button><button className={statusFilter === "high" ? "active" : ""} onClick={() => setStatusFilter("high")}>Más combustible</button><button className={statusFilter === "low" ? "active" : ""} onClick={() => setStatusFilter("low")}>Menos combustible</button></div><label>ORDENAR<select value={tankOrder} onChange={(event) => setTankOrder(event.target.value as TankOrder)}><option value="source">Orden de la fuente</option><option value="highest">Mayor a menor saldo</option><option value="lowest">Menor a mayor saldo</option></select></label></div>
-      <div className="station-tank-grid">{shown.map((station) => { const info = statusInfo[station.status]; const mapUrl = station.latitude != null && station.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${station.name}, ${station.address}, ${departmentName}, Bolivia`)}`; return <article className={`station-tank-card panel ${info.tone}`} key={station.id}><LiquidTank status={station.status} compact/><div><div className="station-events">{station.dispatchInProgress && <span className="station-event dispatch">↻ Despacho en curso{station.dispatchAt ? ` · ${timeAgo(station.dispatchAt)}` : ""}</span>}{station.hasSales ? <span className="station-event sale">● Con venta: {timeAgo(station.lastSaleAt)}</span> : <span className="station-event quiet">○ Sin venta activa · última {timeAgo(station.lastSaleAt)}</span>}</div><h3>{station.name}</h3><p>{station.address}</p><b>{info.label}</b><span>{info.range}</span><a className="station-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Ver ${station.name} en Google Maps`}>⌖ Ver ubicación en el mapa</a></div></article>; })}</div>
-      {filtered.length > 12 && <button className="show-stations" onClick={() => setShowAll(!showAll)}>{showAll ? "Mostrar menos" : `Ver las ${filtered.length} estaciones`}</button>}
-    </article>
-    <p className="fuel-disclaimer">Fuente: aplicación ANH Abastecimiento. CriptoPulso presenta análisis propios. Los tanques y porcentajes son representaciones de rangos, no mediciones exactas. La disponibilidad puede cambiar durante el traslado del usuario. <a href="/guias/como-interpretar-abastecimiento-combustibles">Consulta la metodología y aprende a interpretar los datos.</a></p>
+    <header className="fuel-hero"><div><span className="live-dot">● LITROS REPORTADOS · FUENTE ANH</span><h1>Cripto <i>Combustibles</i></h1><p>Saldos actuales por estación, autonomía y movimiento del abastecimiento explicados de forma clara.</p></div><div className="fuel-source"><small>ÚLTIMA LECTURA</small><b>{data?new Date(data.sourceTime).toLocaleTimeString("es-BO",{hour:"2-digit",minute:"2-digit"}):"—"}</b><span>Historial propio cada 15 minutos</span></div></header>
+    <article className="fuel-filters panel"><label>DEPARTAMENTO<select value={department} onChange={e=>setDepartment(Number(e.target.value))}>{departments.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>PRODUCTO<select value={product} onChange={e=>setProduct(e.target.value as Product)}>{Object.entries(products).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>BUSCAR ESTACIÓN<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre, zona o dirección"/></label><button onClick={load} disabled={loading}>{loading?"Consultando…":"Actualizar"}</button></article>
+    {error&&<div className="fuel-error">{error}</div>}
+    <div className="fuel-data-legend"><span><i className="official-dot"/>DATO ANH: litros, venta y despacho</span><span><i className="estimate-dot"/>ESTIMACIÓN CRIPTOPULSO: capacidad, ventas y autonomía</span></div>
+    <div className="fuel-overview"><article className="panel main-tank-card"><div><span className="panel-label">SALDO DEPARTAMENTAL REPORTADO</span><h2>{departmentName}</h2><p>{products[product]} · {stations.length} estaciones</p><div className="liter-number"><b>{formatCompact(totalLiters)}</b><span>litros totales</span></div><div className="index-pill">Índice real <b>{supplyIndex}/100</b></div></div><LiquidTank percent={overallPercent} liters={totalLiters}/><small className="tank-note">El volumen es la suma exacta reportada por ANH. El porcentaje usa capacidades estimadas por estación y producto.</small></article>
+      <article className="panel fuel-kpis fuel-kpis-six"><div><small>LITROS REPORTADOS</small><b>{formatCompact(totalLiters)}</b><span>dato ANH actual</span></div><div><small>VENDIENDO AHORA</small><b>{selling}</b><span>de {stations.length} estaciones</span></div><div><small>ESTACIONES VACÍAS</small><b>{empty}</b><span>saldo reportado 0 L</span></div><div><small>DESPACHOS EN CURSO</small><b>{dispatches}</b><span>señal oficial ANH</span></div><div><small>VENTA ESTIMADA HOY</small><b>{formatCompact(estimatedSalesToday)}</b><span>por caída de saldos</span></div><div><small>RECARGA DETECTADA HOY</small><b>{formatCompact(estimatedRestockToday)}</b><span>por aumento de saldos</span></div></article></div>
+    <article className="panel fuel-filter-strip"><div>{filters.map(([id,label])=><button key={id} className={filter===id?"active":""} onClick={()=>setFilter(id)}>{label}</button>)}</div><label>ORDENAR<select value={order} onChange={e=>setOrder(e.target.value as Order)}><option value="highest">Más combustible</option><option value="lowest">Menos combustible</option><option value="autonomy">Menor autonomía</option><option value="recent">Actualización reciente</option></select></label></article>
+    <div className="fuel-analysis-grid"><article className="panel supply-trend"><div className="chart-heading"><div><span className="panel-label">HISTÓRICO EN LITROS REALES</span><h2>Evolución del saldo total</h2></div><div className="period-switch"><button className={period==="24h"?"active":""} onClick={()=>setPeriod("24h")}>24 h</button><button className={period==="7d"?"active":""} onClick={()=>setPeriod("7d")}>7 días</button></div></div><LineChart values={trend.map(p=>({x:p.observed_bucket,y:Number(p.total_liters)}))} label="Evolución de litros reportados"/><div className="chart-foot"><span>Inicio <b>{trend.length?formatLiters(Number(trend[0].total_liters)):"—"}</b></span><span>Actual <b>{trend.length?formatLiters(Number(trend.at(-1)!.total_liters)):"—"}</b></span><span>Variación <b className={(trend.at(-1)?.total_liters??0)-(trend[0]?.total_liters??0)>=0?"up":"down"}>{trend.length?formatLiters(Number(trend.at(-1)!.total_liters)-Number(trend[0].total_liters)):"—"}</b></span></div></article>
+      <article className="panel useful-reading"><div className="panel-label">LECTURA FUNDAMENTAL</div><h2>¿Qué está pasando?</h2><ul><li><b>{stations.length-empty} estaciones</b> todavía reportan combustible.</li><li><b>{selling} estaciones</b> registran venta activa en la fuente.</li><li><b>{stations.filter(s=>s.fillPercent<=20&&s.liters>0).length} estaciones</b> están cerca del 20% estimado.</li><li><b>{dispatches} despachos</b> están marcados en curso por ANH.</li><li><b>{formatLiters(estimatedSalesToday)}</b> de salida estimada hoy; aumentará su confiabilidad con el historial.</li></ul></article></div>
+    <div className="fuel-analysis-grid second"><article className="panel supply-trend"><span className="panel-label">ÍNDICE REAL CRIPTOPULSO</span><h2>Evolución del abastecimiento</h2><LineChart values={trend.map(p=>({x:p.observed_bucket,y:Number(p.index)}))} label="Evolución del índice real" color="blue"/><p className="chart-explanation">Combina estaciones con saldo (40%), llenado estimado (25%), venta activa (20%), estabilidad (10%) y reposición (5%). Siempre se interpreta junto a los litros reales.</p></article><article className="panel daily-bars"><span className="panel-label">MOVIMIENTO ESTIMADO</span><h2>Ventas y recargas diarias</h2>{data?.daily.length?<div>{data.daily.slice(-7).map(day=>{const max=Math.max(1,...data.daily.slice(-7).flatMap(d=>[d.estimatedSalesLiters,d.estimatedRestockLiters]));return <div className="daily-row" key={day.date}><span>{new Date(`${day.date}T12:00:00`).toLocaleDateString("es-BO",{weekday:"short",day:"2-digit"})}</span><div><i className="sales-bar" style={{width:`${day.estimatedSalesLiters/max*100}%`}}/><i className="restock-bar" style={{width:`${day.estimatedRestockLiters/max*100}%`}}/></div><b>{formatCompact(day.estimatedSalesLiters)} / {formatCompact(day.estimatedRestockLiters)}</b></div>})}</div>:<div className="history-empty"><b>Aprendiendo patrones</b><span>Las ventas y recargas aparecerán al comparar las próximas lecturas.</span></div>}<div className="bar-legend"><span>● Venta estimada</span><span>● Recarga estimada</span></div></article></div>
+    <article className="station-section"><div className="station-title"><div><span className="panel-label">DETALLE POR ESTACIÓN</span><h2>Saldo, ritmo y autonomía</h2></div><span>{filtered.length} resultados</span></div><div className="station-tank-grid">{shown.map(station=>{const state=statusFor(station);const mapUrl=station.latitude!=null&&station.longitude!=null?`https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}`:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${station.name}, ${station.address}, ${departmentName}, Bolivia`)}`;return <article className={`station-tank-card panel ${state}`} key={station.id}><LiquidTank percent={station.fillPercent} liters={station.liters} compact/><div className="station-body"><div className="station-events">{station.dispatchInProgress&&<span className="station-event dispatch">↻ Despacho ANH en curso</span>}{station.eventType==="estimated_restock"&&<span className="station-event restock">↑ Recarga detectada</span>}{station.hasSales?<span className="station-event sale">● Venta activa · {timeAgo(station.lastSaleAt)}</span>:<span className="station-event quiet">○ Sin venta activa</span>}</div><h3>{station.name}</h3><p>{station.address}</p><div className="station-numbers"><span><small>SALDO ANH</small><b>{formatLiters(station.liters)}</b></span><span><small>CAPACIDAD {station.capacitySource==="learned"?"APRENDIDA":"ESTIMADA"}</small><b>{formatLiters(station.estimatedCapacityLiters)}</b></span><span><small>RITMO ESTIMADO</small><b>{station.estimatedHourlySales?`${formatLiters(station.estimatedHourlySales)}/h`:"Aprendiendo"}</b></span></div><div className="autonomy"><b>{autonomyLabel(station.autonomyHours,station.confidence)}</b><span>{confidenceLabel[station.confidence]} · actualizado {timeAgo(station.sourceUpdatedAt)}</span></div><a className="station-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer">⌖ Ver ubicación</a></div></article>})}</div>{filtered.length>12&&<button className="show-stations" onClick={()=>setShowAll(!showAll)}>{showAll?"Mostrar menos":`Ver las ${filtered.length} estaciones`}</button>}</article>
+    <article className="panel fuel-method"><div><span className="panel-label">TRANSPARENCIA DE DATOS</span><h2>Qué sabemos y qué estimamos</h2></div><div><b>Reportado por ANH</b><p>Saldo en litros, venta activa, despacho en curso, ubicación y última actualización.</p></div><div><b>Calculado por CriptoPulso</b><p>Capacidad visual, porcentaje, salida/venta, volumen de recarga y autonomía probable.</p></div><div><b>Regla de aprendizaje</b><p>Base de 25.000 L. Un saldo superior a 26.000 L se confirma con otra lectura consistente antes de convertirse en el nuevo 100%.</p></div></article>
+    <p className="fuel-disclaimer">Fuente: plataforma pública ANH Abastecimiento. Las estimaciones no son mediciones oficiales de ventas ni garantías de disponibilidad. El saldo puede cambiar durante el traslado. Consulta siempre la hora de actualización antes de decidir.</p>
   </section>;
 }
